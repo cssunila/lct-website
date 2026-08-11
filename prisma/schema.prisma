@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// =======================================================
+// ENUM
+// =======================================================
+
+enum TournamentStatus {
+  DRAFT
+  ACTIVE
+  FINISHED
+}
+
+enum QuestionSession {
+  WAJIB
+  REBUTAN
+}
+
+enum QuestionDifficulty {
+  MUDAH
+  SEDANG
+  SUSAH
+}
+
+enum QuestionKind {
+  BIASA
+  HITUNGAN
+}
+
+enum GameStatus {
+  SETUP
+  IN_PROGRESS
+  FINISHED
+}
+
+enum GamePhase {
+  SETUP
+  WAJIB
+  REBUTAN
+  HASIL
+}
+
+enum GameQuestionStatus {
+  UNANSWERED
+  ANSWERED
+}
+
+enum ScoreResult {
+  CORRECT
+  WRONG
+}
+
+// =======================================================
+// TOURNAMENT
+// =======================================================
+
+model Tournament {
+  id     String @id @default(cuid())
+  name   String
+  year   Int
+  status TournamentStatus @default(DRAFT)
+
+  settings  TournamentSetting?
+  rounds    Round[]
+  teams     Team[]
+  questions Question[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =======================================================
+// SETTING TURNAMEN
+// =======================================================
+
+model TournamentSetting {
+  id           String @id @default(cuid())
+  tournamentId String @unique
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  // Poin
+  mandatoryCorrectPoint Int @default(100)
+  mandatoryWrongPoint   Int @default(0)
+  buzzerCorrectPoint    Int @default(100)
+  buzzerWrongPoint      Int @default(-50)
+}
+
+// =======================================================
+// BABAK
+// =======================================================
+
+model Round {
+  id           String @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name         String
+  order        Int
+
+  groups Group[]
+
+  @@unique([tournamentId, order])
+}
+
+// =======================================================
+// KLOTER / GRUP
+// =======================================================
+
+model Group {
+  id      String @id @default(cuid())
+  roundId String
+  round   Round @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  name    String
+  order   Int
+
+  games Game[]
+
+  @@unique([roundId, order])
+}
+
+// =======================================================
+// GAME / PERTANDINGAN
+// =======================================================
+
+model Game {
+  id      String     @id @default(cuid())
+  groupId String
+  group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  status               GameStatus @default(SETUP)
+  currentPhase         GamePhase  @default(SETUP)
+  currentQuestionId    String?
+
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  teams     GameTeam[]
+  questions GameQuestion[]
+}
+
+// =======================================================
+// TIM
+// =======================================================
+
+model Team {
+  id           String @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name         String
+  school       String
+  qualified    Boolean @default(true)
+  games        GameTeam[]
+}
+
+// =======================================================
+// TIM DALAM GAME
+// =======================================================
+
+model GameTeam {
+  id     String @id @default(cuid())
+  gameId String
+  teamId String
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  score     Int @default(0)
+  rank      Int?
+
+  histories ScoreHistory[]
+  answered  GameQuestion[] @relation("answeredBy")
+
+  @@unique([gameId, teamId])
+}
+
+// =======================================================
+// BANK SOAL
+// =======================================================
+
+model Question {
+  id           String @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  question   String
+  answer     String
+  explanation String?
+  difficulty QuestionDifficulty
+  session    QuestionSession
+  kind       QuestionKind
+  timeLimit  Int
+  image      String?
+
+  games     GameQuestion[]
+  histories ScoreHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =======================================================
+// SOAL DALAM GAME
+// =======================================================
+
+model GameQuestion {
+  id           String @id @default(cuid())
+  gameId       String
+  questionId   String?
+  game         Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  question     Question? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+
+  order  Int
+  status GameQuestionStatus @default(UNANSWERED)
+
+  answeredByGameTeamId String?
+  answeredBy           GameTeam? @relation("answeredBy", fields: [answeredByGameTeamId], references: [id], onDelete: SetNull)
+  isCorrect            Boolean?
+
+  histories ScoreHistory[]
+
+  @@unique([gameId, order])
+}
+
+// =======================================================
+// RIWAYAT SKOR
+// =======================================================
+
+model ScoreHistory {
+  id             String @id @default(cuid())
+  gameTeamId     String
+  gameQuestionId String?
+
+  gameTeam     GameTeam     @relation(fields: [gameTeamId], references: [id], onDelete: Cascade)
+  gameQuestion GameQuestion? @relation(fields: [gameQuestionId], references: [id], onDelete: SetNull)
+  questionId   String?
+  question     Question?    @relation(fields: [questionId], references: [id], onDelete: SetNull)
+
+  result      ScoreResult
+  scoreChange Int
+  totalScore  Int
+
+  createdAt DateTime @default(now())
+}
