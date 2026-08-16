@@ -22,17 +22,18 @@ declare global {
   var __gameEventEmitter: EventEmitter | undefined;
 }
 
+<<<<<<< HEAD
 const liveStates =
   globalThis.__gameLiveStates ?? new Map<string, GameLiveState>();
 if (process.env.NODE_ENV !== "production") {
   globalThis.__gameLiveStates = liveStates;
 }
+=======
+const liveStates = (globalThis.__gameLiveStates ??= new Map<string, GameLiveState>());
+>>>>>>> a1b7628ac238867ff5b3d95733ba43f8419a222c
 
-const emitter = globalThis.__gameEventEmitter ?? new EventEmitter();
+const emitter = (globalThis.__gameEventEmitter ??= new EventEmitter());
 emitter.setMaxListeners(100);
-if (process.env.NODE_ENV !== "production") {
-  globalThis.__gameEventEmitter = emitter;
-}
 
 export function getGameLiveState(
   gameId: string,
