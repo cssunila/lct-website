@@ -37,7 +37,7 @@ async function fetchGameData(gameId: string) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ gameId: string }> }
+  { params }: { params: Promise<{ gameId: string }> },
 ) {
   const { gameId } = await params;
   const isDisplay = request.nextUrl.searchParams.get("forDisplay") === "true";
@@ -51,7 +51,9 @@ export async function GET(
       const send = (data: unknown) => {
         if (isClosed) return;
         try {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify(data)}\n\n`),
+          );
         } catch {
           isClosed = true;
         }
@@ -83,7 +85,10 @@ export async function GET(
         if (isClosed) return;
         const currentLiveState = getGameLiveState(gameId);
 
-        if (event.type === "GAME_DATA_CHANGED" || event.type === "PHASE_CHANGED") {
+        if (
+          event.type === "GAME_DATA_CHANGED" ||
+          event.type === "PHASE_CHANGED"
+        ) {
           const updatedRawGame = await fetchGameData(gameId);
           if (updatedRawGame) {
             rawGame = updatedRawGame;
@@ -122,7 +127,7 @@ export async function GET(
         unsubscribe();
         try {
           controller.close();
-        } catch { }
+        } catch {}
       });
     },
   });

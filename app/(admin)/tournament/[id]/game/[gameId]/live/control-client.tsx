@@ -343,8 +343,13 @@ export default function GameControlClient({
     const duration = timerState.remaining > 0 && timerState.status !== "EXPIRED"
       ? timerState.remaining
       : currentQuestion.timeLimit;
-    await startLiveTimer(gameId, duration);
-    broadcastLocal("TIMER_COUNTDOWN_START", { duration });
+
+    try {
+      await startLiveTimer(gameId, duration);
+      broadcastLocal("TIMER_COUNTDOWN_START", { duration });
+    } catch (err) {
+      console.error(err);
+    } 
   };
 
   const handlePauseTimer = async () => {

@@ -6,7 +6,7 @@ export interface TimerState {
   remaining: number;
   status: "STOPPED" | "RUNNING" | "PAUSED" | "EXPIRED" | "COUNTDOWN";
   endsAt: number | null;
-  countdownEndsAt: number | null; 
+  countdownEndsAt: number | null;
 }
 
 export interface GameLiveState {
@@ -22,7 +22,8 @@ declare global {
   var __gameEventEmitter: EventEmitter | undefined;
 }
 
-const liveStates = globalThis.__gameLiveStates ?? new Map<string, GameLiveState>();
+const liveStates =
+  globalThis.__gameLiveStates ?? new Map<string, GameLiveState>();
 if (process.env.NODE_ENV !== "production") {
   globalThis.__gameLiveStates = liveStates;
 }
@@ -33,7 +34,10 @@ if (process.env.NODE_ENV !== "production") {
   globalThis.__gameEventEmitter = emitter;
 }
 
-export function getGameLiveState(gameId: string, defaultTimeLimit = 30): GameLiveState {
+export function getGameLiveState(
+  gameId: string,
+  defaultTimeLimit = 30,
+): GameLiveState {
   let state = liveStates.get(gameId);
   if (!state) {
     state = {
@@ -65,7 +69,7 @@ export function getGameLiveState(gameId: string, defaultTimeLimit = 30): GameLiv
 
 export function updateGameLiveState(
   gameId: string,
-  updater: (prev: GameLiveState) => GameLiveState
+  updater: (prev: GameLiveState) => GameLiveState,
 ): GameLiveState {
   const prev = getGameLiveState(gameId);
   const next = updater(prev);
@@ -84,13 +88,25 @@ export function updateGameLiveState(
   return next;
 }
 
-export function broadcastGameEvent(gameId: string, eventType: string, data?: unknown) {
-  emitter.emit(`game:${gameId}`, { type: eventType, data, timestamp: Date.now() });
+export function broadcastGameEvent(
+  gameId: string,
+  eventType: string,
+  data?: unknown,
+) {
+  emitter.emit(`game:${gameId}`, {
+    type: eventType,
+    data,
+    timestamp: Date.now(),
+  });
 }
 
 export function subscribeGameEvent(
   gameId: string,
-  callback: (event: { type: string; data?: unknown; timestamp: number }) => void
+  callback: (event: {
+    type: string;
+    data?: unknown;
+    timestamp: number;
+  }) => void,
 ): () => void {
   const channel = `game:${gameId}`;
   emitter.on(channel, callback);
@@ -99,7 +115,10 @@ export function subscribeGameEvent(
   };
 }
 
-export function sanitizeGameDataForDisplay(gameData: any, liveState: GameLiveState) {
+export function sanitizeGameDataForDisplay(
+  gameData: any,
+  liveState: GameLiveState,
+) {
   if (!gameData) return null;
 
   const sanitizedQuestions = gameData.questions?.map((gq: any) => {
@@ -113,9 +132,10 @@ export function sanitizeGameDataForDisplay(gameData: any, liveState: GameLiveSta
         ...gq.question,
         answer: liveState.showAnswer ? gq.question.answer : undefined,
         explanation: liveState.showAnswer ? gq.question.explanation : undefined,
-        question: isCurrentQuestion && !liveState.questionVisible
-          ? undefined
-          : gq.question.question,
+        question:
+          isCurrentQuestion && !liveState.questionVisible
+            ? undefined
+            : gq.question.question,
       },
     };
   });
