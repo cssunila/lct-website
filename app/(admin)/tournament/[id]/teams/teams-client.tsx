@@ -95,9 +95,9 @@ export default function TeamsClient({
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Link
           href={`/tournament/${tournamentId}/settings`}
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground"
@@ -122,7 +122,7 @@ export default function TeamsClient({
             className="h-9 pl-9"
           />
         </div>
-        <div className="flex items-center gap-3 ml-auto">
+        <div className="flex flex-wrap items-center gap-3 ml-auto">
           <span className="text-xs text-muted-foreground">
             {filtered.length} dari {teams.length} tim
           </span>

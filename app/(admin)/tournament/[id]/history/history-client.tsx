@@ -109,9 +109,9 @@ export default function HistoryClient({
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Link
           href={`/tournament/${tournamentId}/settings`}
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground"
@@ -157,7 +157,7 @@ export default function HistoryClient({
         <div className="mt-6">
           {/* Filter */}
           {gameOptions.length > 0 && (
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex flex-wrap items-center gap-3 mb-4">
               <Filter className="h-4 w-4 text-muted-foreground" />
               <Select value={filterGame} onValueChange={(v) => v && setFilterGame(v)}>
                 <SelectTrigger className="h-9 w-64">
@@ -188,11 +188,11 @@ export default function HistoryClient({
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 overflow-x-auto">
               {filteredHistories.map((h) => (
                 <div
                   key={h.id}
-                  className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/20"
+                  className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/20"
                 >
                   {/* Result icon */}
                   <div
@@ -231,7 +231,7 @@ export default function HistoryClient({
                         h.result === "CORRECT" ? "text-emerald-600" : "text-red-600"
                       }`}
                     >
-                      {h.scoreChange > 0 ? "+" : ""}
+                      {h.result === "CORRECT" ? "+" : "-"}
                       {h.scoreChange}
                     </span>
                     <p className="text-[11px] text-muted-foreground">

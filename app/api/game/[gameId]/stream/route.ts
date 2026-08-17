@@ -87,7 +87,8 @@ export async function GET(
 
         if (
           event.type === "GAME_DATA_CHANGED" ||
-          event.type === "PHASE_CHANGED"
+          event.type === "PHASE_CHANGED" ||
+          event.type === "SCORE_UPDATED"
         ) {
           const updatedRawGame = await fetchGameData(gameId);
           if (updatedRawGame) {
@@ -97,13 +98,24 @@ export async function GET(
             ? sanitizeGameDataForDisplay(rawGame, currentLiveState)
             : rawGame;
 
-          send({
-            type: "SYNC_FULL",
-            liveState: currentLiveState,
-            game: updatedGameData,
-            eventType: event.type,
-            timestamp: Date.now(),
-          });
+          if (event.type === "SCORE_UPDATED") {
+            send({
+              type: "SYNC_FULL",
+              liveState: currentLiveState,
+              game: updatedGameData,
+              eventType: event.type,
+              timestamp: Date.now(),
+              team: event.data?.team,
+            });
+          } else {
+            send({
+              type: "SYNC_FULL",
+              liveState: currentLiveState,
+              game: updatedGameData,
+              eventType: event.type,
+              timestamp: Date.now(),
+            });
+          }
         } else {
           const stateGameData = isDisplay
             ? sanitizeGameDataForDisplay(rawGame, currentLiveState)

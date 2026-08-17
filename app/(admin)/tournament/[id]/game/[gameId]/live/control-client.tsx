@@ -245,9 +245,10 @@ export default function GameControlClient({
 
   useEffect(() => {
     if (timerState.status === "COUNTDOWN" && timerState.countdownEndsAt) {
+      const countdownTarget = timerState.countdownEndsAt;
       const interval = setInterval(() => {
         const now = Date.now();
-        const diff = Math.ceil((timerState.countdownEndsAt! - now) / 1000);
+        const diff = Math.ceil((countdownTarget - now) / 1000);
         if (diff > 0) {
           setCountdownNum(diff);
         } else {
@@ -255,7 +256,7 @@ export default function GameControlClient({
           setCountdownNum(null);
           transitionTimerToRunning(gameId).catch(console.error);
         }
-      }, 200);
+      }, 100);
       return () => clearInterval(interval);
     }
 
@@ -263,16 +264,32 @@ export default function GameControlClient({
       (async () => {
         setCountdownNum(null);
       })();
+      const endTarget = timerState.endsAt;
+      const maxDisplay = timerState.remaining;
+      const initialDiff = Math.min(maxDisplay, Math.max(0, Math.ceil((endTarget - Date.now()) / 1000)));
+      (async () => {
+        setDisplayTimer(initialDiff);
+      })();
+
       const interval = setInterval(() => {
         const now = Date.now();
-        const diff = Math.max(0, Math.ceil((timerState.endsAt! - now) / 1000));
+        const diff = Math.min(maxDisplay, Math.max(0, Math.ceil((endTarget - now) / 1000)));
         setDisplayTimer(diff);
         if (diff <= 0) {
           clearInterval(interval);
+          setDisplayTimer(0);
           setTimerState((prev) => ({ ...prev, status: "EXPIRED", remaining: 0 }));
         }
       }, 200);
       return () => clearInterval(interval);
+    }
+
+    if (timerState.status === "EXPIRED") {
+      (async () => {
+        setCountdownNum(null);
+        setDisplayTimer(0);
+      })();
+      return;
     }
 
     (async () => {
@@ -349,7 +366,7 @@ export default function GameControlClient({
       broadcastLocal("TIMER_COUNTDOWN_START", { duration });
     } catch (err) {
       console.error(err);
-    } 
+    }
   };
 
   const handlePauseTimer = async () => {
@@ -376,12 +393,6 @@ export default function GameControlClient({
     broadcastLocal("ANSWER_VISIBILITY_CHANGED", { showAnswer: nextVal });
   };
 
-  const handleScore = async (gameTeamId: string, gameQuestionId: string, isCorrect: boolean) => {
-    const scoreChange = isCorrect ? correctPoints : wrongPoints;
-    await markQuestionAnswered({ gameQuestionId, gameTeamId, isCorrect, scoreChange });
-    broadcastLocal("SCORE_UPDATED");
-  };
-
   const handleToggleQualification = async (teamId: string, currentQualified: boolean) => {
     const nextStatus = !currentQualified;
     setTeams((prev) =>
@@ -392,7 +403,7 @@ export default function GameControlClient({
       )
     );
     await toggleTeamQualification(teamId, nextStatus, gameId);
-    broadcastLocal("SCORE_UPDATED");
+    broadcastLocal("TEAM_QUALIFICATION_TOGGLED", { teamId, qualified: nextStatus });
   };
 
   const handlePhaseChange = async (phase: "SETUP" | "WAJIB" | "REBUTAN" | "HASIL") => {
@@ -418,7 +429,7 @@ export default function GameControlClient({
   const questionSelected = !!currentQuestion;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
       {/* Header Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="flex items-center gap-3">
@@ -438,13 +449,13 @@ export default function GameControlClient({
             </div>
             <h1 className="text-xl font-extrabold flex items-center gap-3">
               Kontrol Live Operator
-              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${isConnected ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/15 text-amber-600"}`}>
-                {isConnected ? "Realtime Active" : "Connecting..."}
-              </span>
+              {!isConnected && <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${isConnected ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/15 text-amber-600"}`}>
+                Connecting...
+              </span>}
             </h1>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href={`/display/${gameId}`} target="_blank" className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm transition-transform hover:scale-105 active:scale-95">
             <Monitor className="h-4 w-4" />
             Buka Display
@@ -498,7 +509,7 @@ export default function GameControlClient({
       </div>
 
       {/* Main Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-3 overflow-x-auto">
         <div className="lg:col-span-2 space-y-6">
           {questionSelected && (
             <div className="rounded-2xl border border-primary/20 bg-linear-to-br from-card via-card to-primary/5 p-6 shadow-sm space-y-4">
@@ -564,7 +575,7 @@ export default function GameControlClient({
 
           {game.currentPhase !== "HASIL" && (
             <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex flex-wrap items-center justify-between border-b border-border pb-3 gap-2">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Navigasi Soal Pertandingan
@@ -577,11 +588,11 @@ export default function GameControlClient({
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" disabled={currentIndexInFilteredList <= 0} onClick={handlePrevQuestion} className="rounded-lg text-xs">
+                  <Button variant="outline" size="sm" disabled={currentIndexInFilteredList <= 0 || timerIsActive} onClick={handlePrevQuestion} className="rounded-lg text-xs">
                     <ChevronLeft className="h-4 w-4 mr-1" />Sebelum
                   </Button>
                   <Button variant="outline" size="sm"
-                    disabled={currentIndexInFilteredList < 0 || currentIndexInFilteredList >= filteredQuestionsForCurrentPhase.length - 1}
+                    disabled={currentIndexInFilteredList < 0 || currentIndexInFilteredList >= filteredQuestionsForCurrentPhase.length - 1 || timerIsActive}
                     onClick={handleNextQuestion} className="rounded-lg text-xs">
                     Berikutnya<ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
@@ -602,7 +613,7 @@ export default function GameControlClient({
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {questionWajib.map((gq, i) => (
-                      <button key={gq.id} disabled={game.currentPhase !== "WAJIB"} onClick={() => goToQuestion(gq)}
+                      <button key={gq.id} disabled={game.currentPhase !== "WAJIB" || timerIsActive} onClick={() => goToQuestion(gq)}
                         className={`inline-flex h-10 min-w-10 px-3 items-center justify-center rounded-xl text-xs font-black transition-all ${gq.id === currentIdx ? "bg-amber-500 text-white shadow-md ring-2 ring-amber-400 scale-105"
                           : gq.status === "ANSWERED" ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
                             : game.currentPhase === "WAJIB" ? "bg-card text-foreground hover:bg-amber-500/20 hover:text-amber-600 border border-border"
@@ -626,7 +637,7 @@ export default function GameControlClient({
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {questionRebutan.map((gq, i) => (
-                      <button key={gq.id} disabled={game.currentPhase !== "REBUTAN"} onClick={() => goToQuestion(gq)}
+                      <button key={gq.id} disabled={game.currentPhase !== "REBUTAN" || timerIsActive} onClick={() => goToQuestion(gq)}
                         className={`inline-flex h-10 min-w-10 px-3 items-center justify-center rounded-xl text-xs font-black transition-all ${gq.id === currentIdx ? "bg-red-600 text-white shadow-md ring-2 ring-red-400 scale-105"
                           : gq.status === "ANSWERED" ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
                             : game.currentPhase === "REBUTAN" ? "bg-card text-foreground hover:bg-red-500/20 hover:text-red-600 border border-border"

@@ -177,9 +177,9 @@ export default function GameSetupClient({
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Link
           href={`/tournament/${tournamentId}/game`}
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground"
@@ -218,7 +218,7 @@ export default function GameSetupClient({
       </div>
 
       {/* Status */}
-      <div className="mt-4 flex gap-3 text-sm">
+      <div className="mt-4 flex flex-wrap gap-3 text-sm">
         <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold ${game.status === "SETUP" ? "bg-muted text-muted-foreground" :
           game.status === "IN_PROGRESS" ? "bg-emerald-500/15 text-emerald-600" :
             "bg-blue-500/15 text-blue-600"
@@ -261,7 +261,7 @@ export default function GameSetupClient({
 
       {/* Tab Content */}
       {tab === "teams" && (
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="mt-6 grid gap-6 lg:grid-cols-2 overflow-x-auto">
           {/* Tambahkan tim */}
           <section>
             <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-muted-foreground">
@@ -340,7 +340,7 @@ export default function GameSetupClient({
       )}
 
       {tab === "questions" && (
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="mt-6 grid gap-6 lg:grid-cols-2 overflow-x-auto">
           {game.status === "SETUP" && (
             <div className="col-span-full rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
               <div className="flex items-center gap-2">

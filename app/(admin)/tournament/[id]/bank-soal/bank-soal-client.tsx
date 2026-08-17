@@ -98,7 +98,7 @@ export default function BankSoalClient({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-8 py-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 md:px-8 py-5">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.3em] text-primary">
             {tournamentName}
@@ -106,7 +106,7 @@ export default function BankSoalClient({
           <h1 className="mt-0.5 text-2xl font-extrabold">Bank Soal</h1>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="lg"

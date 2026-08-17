@@ -127,8 +127,16 @@ function useSoundSystem() {
   return { playWarning, playEnd, playCountdownBeep, playPhaseFanfare };
 }
 
+interface EventScoreUpdate {
+  teamId: string;
+  scoreChange: number;
+  type: "CORRECT" | "WRONG" | "CHANGE";
+}
+
+
 export default function GameDisplayClient({ gameId, game: initialGame }: GameDisplayClientProps) {
   const [game, setGame] = useState(initialGame);
+  const [eventScoreUpdated, setEventScoreUpdated] = useState<EventScoreUpdate | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
   const [questionVisible, setQuestionVisible] = useState(false);
 
@@ -182,6 +190,13 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
 
         if (msg.game) {
           setGame(msg.game);
+          if (msg.eventType === "SCORE_UPDATED") {
+            setEventScoreUpdated(msg.team as EventScoreUpdate);
+            const timeout = setTimeout(() => {
+              setEventScoreUpdated(null);
+              clearTimeout(timeout);
+            }, 2000);
+          }
 
           if (msg.eventType === "PHASE_CHANGED" && msg.game.currentPhase && msg.game.currentPhase !== prevPhaseRef.current) {
             prevPhaseRef.current = msg.game.currentPhase;
@@ -241,9 +256,10 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
 
   useEffect(() => {
     if (timerStatus === "COUNTDOWN" && countdownEndsAt) {
+      const countdownTarget = countdownEndsAt;
       const interval = setInterval(() => {
         const now = Date.now();
-        const diff = Math.ceil((countdownEndsAt - now) / 1000);
+        const diff = Math.ceil((countdownTarget - now) / 1000);
         const displayDiff = diff > 0 ? diff : 0;
         setCountdownNum(displayDiff);
 
@@ -262,17 +278,21 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
       prevCountdownNum.current = null;
       lastWarningBeep.current = null;
 
-      const nowMs = Date.now();
-      const initialDiff = Math.max(0, Math.ceil((endsAt - nowMs) / 1000));
+      const endTarget = endsAt;
+      const maxDisplay = timerRemaining;
+      const initialDiff = Math.min(maxDisplay, Math.max(0, Math.ceil((endTarget - Date.now()) / 1000)));
       (async () => {
         setDisplayTimer(initialDiff);
       })();
+
       if (initialDiff === 0) {
         if (!hasPlayedEndBeepRef.current) {
           hasPlayedEndBeepRef.current = true;
           playEnd();
         }
         (async () => {
+          setTimerRemaining(0);
+          setDisplayTimer(0);
           setTimerStatus("EXPIRED");
         })();
         return;
@@ -280,7 +300,7 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
 
       const interval = setInterval(() => {
         const now = Date.now();
-        const diff = Math.max(0, Math.ceil((endsAt - now) / 1000));
+        const diff = Math.min(maxDisplay, Math.max(0, Math.ceil((endTarget - now) / 1000)));
         setDisplayTimer(diff);
 
         if (diff <= 5 && diff > 0 && lastWarningBeep.current !== diff) {
@@ -294,10 +314,23 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
             hasPlayedEndBeepRef.current = true;
             playEnd();
           }
-          setTimerStatus("EXPIRED");
+          (async () => {
+            setTimerRemaining(0);
+            setDisplayTimer(0);
+            setTimerStatus("EXPIRED");
+          })();
         }
       }, 200);
       return () => clearInterval(interval);
+    }
+
+    if (timerStatus === "EXPIRED") {
+      (async () => {
+        setCountdownNum(null);
+        setDisplayTimer(0);
+      })();
+      
+      return;
     }
 
     (async () => {
@@ -305,6 +338,7 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
       setDisplayTimer(timerRemaining);
     })();
   }, [timerStatus, endsAt, countdownEndsAt, timerRemaining, playWarning, playEnd, playCountdownBeep]);
+
 
   const currentQ = game?.questions.find((q) => q.id === game.currentQuestionId) ?? null;
   const questionData = currentQ?.question ?? null;
@@ -526,7 +560,7 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
               <span className={`font-mono font-black text-6xl lg:text-7xl tabular-nums leading-none transition-all ${isWarning ? "text-red-500 scale-110 animate-pulse"
                 : isExpired ? "text-red-500/60"
                   : "text-white"}`}>
-                {String(displayTimer).padStart(2, "0")}
+                {isExpired ? "00" : String(displayTimer).padStart(2, "0")}
               </span>
             </div>
 
@@ -570,16 +604,19 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
       {game.currentPhase !== "HASIL" && (
         <div className="flex flex-wrap items-stretch border-t border-white/10 bg-white/2 backdrop-blur-lg">
           {game.teams.map((gt, i) => (
-            <div key={gt.id} className={`flex flex-1 items-center justify-between px-5 py-4 ${i > 0 ? "border-l border-white/10" : ""}`}>
-              <div className="flex flex-col items-start min-w-0 pr-4">
-                <span className="text-xl font-extrabold leading-tight lg:text-2xl text-white truncate max-w-40">
+            <div key={gt.id} className={`relative flex flex-1 max-w-96 items-center justify-between px-5 py-4 ${i > 0 ? "border-l border-white/10" : ""}`}>
+              {eventScoreUpdated && eventScoreUpdated.teamId === gt.id && (eventScoreUpdated.scoreChange > 0 || eventScoreUpdated.type === "CHANGE") && <div className={`absolute left-1/2 transition-all duration-500 -translate-x-1/2 ${eventScoreUpdated.teamId === gt.id ? "-top-13 opacity-100" : "opacity-0 top-0"} border ${eventScoreUpdated.type === "CORRECT" ? "border-green-500/10 bg-green-500/15" : eventScoreUpdated.type === "WRONG" ? "border-red-500/10 bg-red-500/15" : "border-yellow-500/10 bg-yellow-500/15"} px-3 py-2 rounded-2xl`}>
+                <span className={`font-black text-xl ${eventScoreUpdated.type === "CORRECT" ? "text-green-500" : eventScoreUpdated.type === "WRONG" ? "text-red-500" : "text-yellow-500"}`}>{eventScoreUpdated.type === "CORRECT" ? `+${eventScoreUpdated.scoreChange}` : eventScoreUpdated.type === "WRONG" ? `-${eventScoreUpdated.scoreChange}` : `${eventScoreUpdated.scoreChange}`}</span>
+              </div>}
+              <div className="flex flex-col items-center gap-3 justify-center w-full">
+                <span className="text-lg text-center font-extrabold leading-tight lg:text-xl text-white truncate max-w-53">
                   {gt.team.name}
                 </span>
-                <span className="text-xs font-semibold text-white/40 truncate max-w-40">{gt.team.school}</span>
-              </div>
-              <div className="flex flex-col items-center rounded-2xl bg-linear-to-b from-white/15 to-white/5 border border-white/10 px-6 py-2 min-w-27.5 shadow-lg">
-                <span className="text-4xl font-black tabular-nums text-amber-400">{gt.score}</span>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-white/40">Poin</span>
+                {/* <span className="text-xs font-semibold text-white/40 truncate max-w-40">{gt.team.school}</span> */}
+                <div className="flex flex-col items-center rounded-2xl bg-linear-to-b from-white/15 to-white/5 border border-white/10 px-6 py-2 min-w-27.5 shadow-lg">
+                  <span className="text-4xl font-black tabular-nums text-amber-400">{gt.score}</span>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-white/40">Poin</span>
+                </div>
               </div>
             </div>
           ))}

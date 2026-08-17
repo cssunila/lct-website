@@ -241,7 +241,14 @@ export async function changeScoreTim({
       `/tournament/${game.group.round.tournamentId}/game/${game.id}`,
     );
   }
-  broadcastGameEvent(gameTeam.gameId, "GAME_DATA_CHANGED");
+
+  const team = {
+    teamId: gameTeamId,
+    scoreChange: score,
+    type: "CHANGE"
+  }
+
+  broadcastGameEvent(gameTeam.gameId, "SCORE_UPDATED", { team });
   return gameTeam;
 }
 
@@ -300,7 +307,14 @@ export async function markQuestionAnswered(data: {
       `/tournament/${game.group.round.tournamentId}/game/${game.id}`,
     );
   }
-  broadcastGameEvent(gq.gameId, "GAME_DATA_CHANGED");
+
+  const team = {
+    teamId: data.gameTeamId,
+    scoreChange: data.scoreChange,
+    type: data.isCorrect ? "CORRECT" : "WRONG",
+  }
+
+  broadcastGameEvent(gq.gameId, "SCORE_UPDATED", { team });
   return gq;
 }
 

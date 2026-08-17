@@ -68,7 +68,7 @@ const DashboardPage = async () => {
     const recentGames = await getRecentGames(tid, 5);
 
     return (
-        <div className="p-8">
+        <div className="p-4 md:p-8">
             {/* Header */}
             <header className="flex flex-wrap items-start justify-between gap-4">
                 <div>
@@ -89,7 +89,7 @@ const DashboardPage = async () => {
             </header>
 
             {/* Stats */}
-            <section className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <section className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <StatCard icon={Users} label="Total Tim" value={teamCount} color="blue" />
                 <StatCard icon={Layers} label="Total Babak" value={roundCount} color="green" />
                 <StatCard icon={Grid3X3} label="Total Kloter" value={groupCount} color="amber" />

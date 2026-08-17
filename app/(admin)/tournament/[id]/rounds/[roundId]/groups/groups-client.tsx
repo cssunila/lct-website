@@ -268,7 +268,7 @@ export default function GroupsClient({
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <RandomizeOverlay
         phase={animPhase}
         message={animMessage}
@@ -277,7 +277,7 @@ export default function GroupsClient({
       />
 
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Link
           href={`/tournament/${tournamentId}/rounds`}
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground"
