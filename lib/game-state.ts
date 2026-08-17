@@ -14,6 +14,7 @@ export interface GameLiveState {
   currentQuestionId: string | null;
   showAnswer: boolean;
   questionVisible: boolean;
+  fullScreen: boolean;
   timer: TimerState;
 }
 
@@ -38,6 +39,7 @@ export function getGameLiveState(
       currentQuestionId: null,
       showAnswer: false,
       questionVisible: false,
+      fullScreen: false,
       timer: {
         timeLimit: defaultTimeLimit,
         remaining: defaultTimeLimit,

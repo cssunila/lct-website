@@ -453,7 +453,7 @@ export default function GameSetupClient({
             )}
           </section>
 
-          {game.status === "SETUP" && (
+          {(game.status === "SETUP" || game.status === "IN_PROGRESS") && (
             <section>
               <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-muted-foreground">
                 Bank Soal Tersedia

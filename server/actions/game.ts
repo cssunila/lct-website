@@ -450,6 +450,10 @@ export async function setAnswerVisibility(gameId: string, showAnswer: boolean) {
   return updateGameLiveState(gameId, (prev) => ({ ...prev, showAnswer }));
 }
 
+export async function setFullScreenDisplay(gameId: string, fullScreen: boolean) {
+  return updateGameLiveState(gameId, (prev) => ({ ...prev, fullScreen }));
+}
+
 const COUNTDOWN_SECONDS = 3;
 
 export async function startLiveTimer(gameId: string, duration?: number) {

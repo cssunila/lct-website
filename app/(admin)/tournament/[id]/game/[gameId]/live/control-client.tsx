@@ -21,6 +21,10 @@ import {
   Lock,
   AlertCircle,
   Check,
+  Maximize,
+  Minimize,
+  Keyboard,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +33,7 @@ import {
   updateGameStatus,
   markQuestionAnswered,
   setAnswerVisibility,
+  setFullScreenDisplay,
   startLiveTimer,
   pauseLiveTimer,
   resetLiveTimer,
@@ -189,8 +194,20 @@ export default function GameControlClient({
 
   const [loadingQuestion, setLoadingQuestion] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [fullScreenDisplay, setFullScreenDisplayState] = useState(false);
 
   const bcRef = useRef<BroadcastChannel | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`lct_display_fullscreen_${gameId}`);
+      if (saved !== null) {
+        (async () => {
+          setFullScreenDisplayState(saved === "true");
+        })();
+      }
+    }
+  }, [gameId]);
 
   const broadcastLocal = useCallback((type: string, payload?: unknown) => {
     if (bcRef.current) {
@@ -200,12 +217,22 @@ export default function GameControlClient({
 
   useEffect(() => {
     if (typeof window !== "undefined" && "BroadcastChannel" in window) {
-      bcRef.current = new BroadcastChannel(`lct-game-${gameId}`);
+      const bc = new BroadcastChannel(`lct-game-${gameId}`);
+      bcRef.current = bc;
+      bc.onmessage = (e) => {
+        if (!e.data || e.data.gameId !== gameId) return;
+        if (e.data.type === "FULLSCREEN_TOGGLED" && e.data.payload?.fullScreen !== undefined) {
+          setFullScreenDisplayState(e.data.payload.fullScreen);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(`lct_display_fullscreen_${gameId}`, String(e.data.payload.fullScreen));
+          }
+        }
+      };
       (async () => {
         setIsConnected(true);
       })();
+      return () => bc.close();
     }
-    return () => bcRef.current?.close();
   }, [gameId]);
 
   useEffect(() => {
@@ -221,6 +248,12 @@ export default function GameControlClient({
           setTimerState(msg.liveState.timer);
           if (msg.liveState.currentQuestionId !== undefined) {
             setCurrentIdx(msg.liveState.currentQuestionId);
+          }
+          if (msg.liveState.fullScreen !== undefined) {
+            setFullScreenDisplayState(msg.liveState.fullScreen);
+            if (typeof window !== "undefined") {
+              localStorage.setItem(`lct_display_fullscreen_${gameId}`, String(msg.liveState.fullScreen));
+            }
           }
         }
         if (msg.game) {
@@ -343,19 +376,19 @@ export default function GameControlClient({
     (q) => q.id === currentIdx
   );
 
-  const handlePrevQuestion = () => {
+  const handlePrevQuestion = useCallback(() => {
     if (currentIndexInFilteredList > 0) {
       goToQuestion(filteredQuestionsForCurrentPhase[currentIndexInFilteredList - 1]);
     }
-  };
+  }, [currentIndexInFilteredList, filteredQuestionsForCurrentPhase, goToQuestion]);
 
-  const handleNextQuestion = () => {
+  const handleNextQuestion = useCallback(() => {
     if (currentIndexInFilteredList >= 0 && currentIndexInFilteredList < filteredQuestionsForCurrentPhase.length - 1) {
       goToQuestion(filteredQuestionsForCurrentPhase[currentIndexInFilteredList + 1]);
     }
-  };
+  }, [currentIndexInFilteredList, filteredQuestionsForCurrentPhase, goToQuestion]);
 
-  const handleStartTimer = async () => {
+  const handleStartTimer = useCallback(async () => {
     if (!currentQuestion) return;
     const duration = timerState.remaining > 0 && timerState.status !== "EXPIRED"
       ? timerState.remaining
@@ -367,31 +400,31 @@ export default function GameControlClient({
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [gameId, timerState.remaining, timerState.status, currentQuestion, broadcastLocal]);
 
-  const handlePauseTimer = async () => {
+  const handlePauseTimer = useCallback(async () => {
     await pauseLiveTimer(gameId, displayTimer);
     broadcastLocal("TIMER_PAUSE", { remaining: displayTimer });
-  };
+  }, [gameId, displayTimer, broadcastLocal]);
 
-  const handleResetTimer = async () => {
+  const handleResetTimer = useCallback(async () => {
     const duration = currentQuestion?.timeLimit ?? 30;
     await resetLiveTimer(gameId, duration);
     setCountdownNum(null);
     broadcastLocal("TIMER_RESET", { duration });
-  };
+  }, [gameId, currentQuestion, broadcastLocal]);
 
   // const handleAdjustTimer = async (seconds: number) => {
   //   await adjustLiveTimer(gameId, seconds);
   //   broadcastLocal("TIMER_ADJUST", { seconds });
   // };
 
-  const handleToggleAnswer = async () => {
+  const handleToggleAnswer = useCallback(async () => {
     const nextVal = !showAnswer;
     setShowAnswerState(nextVal);
     await setAnswerVisibility(gameId, nextVal);
     broadcastLocal("ANSWER_VISIBILITY_CHANGED", { showAnswer: nextVal });
-  };
+  }, [gameId, showAnswer, broadcastLocal, setShowAnswerState]);
 
   const handleToggleQualification = async (teamId: string, currentQualified: boolean) => {
     const nextStatus = !currentQualified;
@@ -416,6 +449,16 @@ export default function GameControlClient({
     broadcastLocal("PHASE_CHANGED", { phase });
   };
 
+  const handleToggleFullScreenDisplay = useCallback(async () => {
+    const nextVal = !fullScreenDisplay;
+    setFullScreenDisplayState(nextVal);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`lct_display_fullscreen_${gameId}`, String(nextVal));
+    }
+    broadcastLocal("FULLSCREEN_TOGGLED", { fullScreen: nextVal });
+    await setFullScreenDisplay(gameId, nextVal);
+  }, [gameId, fullScreenDisplay, broadcastLocal, setFullScreenDisplayState]);
+
   const handleFinish = async () => {
     if (!confirm("Yakin selesaikan game ini?")) return;
     await updateGameStatus(gameId, "FINISHED");
@@ -427,6 +470,68 @@ export default function GameControlClient({
 
   const timerIsActive = timerState.status === "RUNNING" || timerState.status === "COUNTDOWN";
   const questionSelected = !!currentQuestion;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) return;
+
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      const key = e.key;
+
+      if (key === " " || key === "Spacebar") {
+        e.preventDefault();
+        if (timerIsActive) {
+          handlePauseTimer();
+        } else if (questionSelected && currentGQ?.status !== "ANSWERED") {
+          handleStartTimer();
+        }
+      } else if (key.toLowerCase() === "r") {
+        e.preventDefault();
+        if (questionSelected && currentGQ?.status !== "ANSWERED") {
+          handleResetTimer();
+        }
+      } else if (key === "ArrowRight") {
+        e.preventDefault();
+        if (!timerIsActive) {
+          handleNextQuestion();
+        }
+      } else if (key === "ArrowLeft") {
+        e.preventDefault();
+        if (!timerIsActive) {
+          handlePrevQuestion();
+        }
+      } else if (key.toLowerCase() === "a" || key.toLowerCase() === "j") {
+        e.preventDefault();
+        if (questionSelected && !timerIsActive && countdownNum === null) {
+          handleToggleAnswer();
+        }
+      } else if (key.toLowerCase() === "f") {
+        e.preventDefault();
+        handleToggleFullScreenDisplay();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    timerIsActive,
+    questionSelected,
+    currentGQ?.status,
+    countdownNum,
+    handleStartTimer,
+    handlePauseTimer,
+    handleResetTimer,
+    handleNextQuestion,
+    handlePrevQuestion,
+    handleToggleAnswer,
+    handleToggleFullScreenDisplay,
+  ]);
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
@@ -495,37 +600,37 @@ export default function GameControlClient({
           </button>
           <button
             onClick={() => handlePhaseChange("REBUTAN")}
-            className={`flex items-center justify-center gap-2 rounded-xl p-3.5 text-sm font-extrabold transition-all border ${game.currentPhase === "REBUTAN" ? "bg-red-600 text-white border-red-700 shadow-md ring-2 ring-red-400 scale-[1.02]" : "bg-card border-border hover:bg-red-500/10 hover:text-red-500"}`}
+            className={`flex items-center justify-center gap-2 rounded-xl p-3.5 text-sm font-extrabold transition-all border ${game.currentPhase === "REBUTAN" ? "bg-red-500 text-white border-red-600 shadow-md ring-2 ring-red-400 scale-[1.02]" : "bg-card border-border hover:bg-red-500/10 hover:text-red-500"}`}
           >
             Sesi Soal REBUTAN
           </button>
           <button
             onClick={() => handlePhaseChange("HASIL")}
-            className={`flex items-center justify-center gap-2 rounded-xl p-3.5 text-sm font-extrabold transition-all border ${game.currentPhase === "HASIL" ? "bg-blue-600 text-white border-blue-700 shadow-md ring-2 ring-blue-400 scale-[1.02]" : "bg-card border-border hover:bg-blue-500/10 hover:text-blue-500"}`}
+            className={`flex items-center justify-center gap-2 rounded-xl p-3.5 text-sm font-extrabold transition-all border ${game.currentPhase === "HASIL" ? "bg-blue-500 text-white border-blue-600 shadow-md ring-2 ring-blue-400 scale-[1.02]" : "bg-card border-border hover:bg-blue-500/10 hover:text-blue-500"}`}
           >
-            Pengumuman HASIL
+            Fase HASIL
           </button>
         </div>
       </div>
 
-      {/* Main Grid */}
-      <div className="grid gap-6 lg:grid-cols-3 overflow-x-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-x-auto">
         <div className="lg:col-span-2 space-y-6">
-          {questionSelected && (
-            <div className="rounded-2xl border border-primary/20 bg-linear-to-br from-card via-card to-primary/5 p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Clock className="h-4 w-4 text-primary" />
-                  Kontrol Timer Live
-                </span>
-                <span className={`rounded-full px-3 py-1 text-xs font-bold ${countdownNum !== null ? "bg-blue-500/20 text-blue-600 dark:text-blue-400 animate-pulse"
-                  : timerState.status === "RUNNING" ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 animate-pulse"
-                    : timerState.status === "PAUSED" ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
-                      : timerState.status === "EXPIRED" ? "bg-red-500/20 text-red-600 dark:text-red-400"
+          {/* Active Timer Box */}
+          {game.currentPhase !== "HASIL" && (
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-primary" />
+                  <span className="font-extrabold text-sm uppercase tracking-wider">Timer Soal</span>
+                </div>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${timerState.status === "RUNNING" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 animate-pulse"
+                  : timerState.status === "PAUSED" ? "bg-amber-500/15 text-amber-600"
+                    : timerState.status === "COUNTDOWN" ? "bg-blue-500/15 text-blue-600 animate-pulse"
+                      : timerState.status === "EXPIRED" ? "bg-red-500/15 text-red-600"
                         : "bg-muted text-muted-foreground"}`}>
-                  {countdownNum !== null ? `Aba-aba: ${countdownNum}`
-                    : timerState.status === "RUNNING" ? "Berjalan"
-                      : timerState.status === "PAUSED" ? "Dijeda"
+                  {timerState.status === "RUNNING" ? "Berjalan"
+                    : timerState.status === "PAUSED" ? "Jeda"
+                      : timerState.status === "COUNTDOWN" ? "Bersiap..."
                         : timerState.status === "EXPIRED" ? "Waktu Habis"
                           : "Siap"}
                 </span>
@@ -555,6 +660,7 @@ export default function GameControlClient({
                       <Button size="lg" className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl px-5" onClick={handlePauseTimer}>
                         <Pause className="h-5 w-5 mr-1.5" />
                         Jeda Timer
+                        <kbd className="ml-2 rounded px-1.5 py-0.5 text-[10px] bg-black/20 font-mono">Space</kbd>
                       </Button>
                     )
                   ) : (
@@ -562,11 +668,13 @@ export default function GameControlClient({
                       disabled={!currentQuestion || currentGQ?.status === "ANSWERED"}>
                       <Play className="h-5 w-5 mr-1.5" />
                       {timerState.status === "PAUSED" ? "Lanjutkan Timer" : "Mulai Timer"}
+                      <kbd className="ml-2 rounded px-1.5 py-0.5 text-[10px] bg-black/20 font-mono">Space</kbd>
                     </Button>
                   )}
                   <Button disabled={!currentQuestion || currentGQ?.status === "ANSWERED"} variant="outline" size="lg" className="rounded-xl font-bold" onClick={handleResetTimer}>
                     <RotateCcw className="h-4 w-4 mr-1.5" />
                     Reset
+                    <kbd className="ml-1.5 rounded px-1.5 py-0.5 text-[10px] bg-muted font-mono border">R</kbd>
                   </Button>
                 </div>
               </div>
@@ -590,11 +698,14 @@ export default function GameControlClient({
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" disabled={currentIndexInFilteredList <= 0 || timerIsActive} onClick={handlePrevQuestion} className="rounded-lg text-xs">
                     <ChevronLeft className="h-4 w-4 mr-1" />Sebelum
+                    <kbd className="ml-1 rounded px-1 text-[10px] bg-muted font-mono border">←</kbd>
                   </Button>
                   <Button variant="outline" size="sm"
                     disabled={currentIndexInFilteredList < 0 || currentIndexInFilteredList >= filteredQuestionsForCurrentPhase.length - 1 || timerIsActive}
                     onClick={handleNextQuestion} className="rounded-lg text-xs">
-                    Berikutnya<ChevronRight className="h-4 w-4 ml-1" />
+                    Berikutnya
+                    <kbd className="ml-1 rounded px-1 text-[10px] bg-muted font-mono border">→</kbd>
+                    <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
               </div>
@@ -670,17 +781,29 @@ export default function GameControlClient({
                     Limit: {currentQuestion.timeLimit}s
                   </span>
                 </div>
-
-                <Button
-                  variant={showAnswer ? "default" : "outline"}
-                  size="sm"
-                  disabled={countdownNum !== null || timerIsActive}
-                  onClick={handleToggleAnswer}
-                  className={`rounded-xl font-bold transition-all ${showAnswer ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "border-primary/50 text-primary hover:bg-primary/10"}`}
-                >
-                  {showAnswer ? <EyeOff className="h-4 w-4 mr-1.5" /> : <Eye className="h-4 w-4 mr-1.5" />}
-                  {showAnswer ? "Sembunyikan Jawaban" : "Tampilkan Jawaban"}
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant={fullScreenDisplay ? "default" : "outline"}
+                    className="rounded-xl px-3 py-2 text-xs font-bold gap-1.5"
+                    onClick={handleToggleFullScreenDisplay}
+                    title={fullScreenDisplay ? "Matikan Layar Penuh Display (Hotkey: F)" : "Aktifkan Layar Penuh Display (Hotkey: F)"}
+                  >
+                    {fullScreenDisplay ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                    {fullScreenDisplay ? "Minimize (Key: F)" : "Maximize (Key: F)"}
+                    <kbd className="ml-1 rounded px-1 text-[10px] bg-muted font-mono border text-black">F</kbd>
+                  </Button>
+                  <Button
+                    variant={showAnswer ? "default" : "outline"}
+                    disabled={countdownNum !== null || timerIsActive}
+                    onClick={handleToggleAnswer}
+                    title={showAnswer ? "Sembunyikan Jawaban (Key: A / J)" : "Tampilkan Jawaban (Key: A / J)"}
+                    className={`rounded-xl px-3 py-2 text-xs font-bold gap-1.5 ${showAnswer ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "text-primary hover:bg-primary/10"}`}
+                  >
+                    {showAnswer ? <EyeOff className="h-4 w-4 mr-1.5" /> : <Eye className="h-4 w-4 mr-1.5" />}
+                    {showAnswer ? "Sembunyikan Jawaban" : "Tampilkan Jawaban"}
+                    <kbd className="ml-1 rounded px-1 text-[10px] bg-muted font-mono border text-black">A</kbd>
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-3">

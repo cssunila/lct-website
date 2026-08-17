@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Clock, Zap, ShieldAlert, Trophy, Sparkles } from "lucide-react";
+import { Clock, Zap, ShieldAlert, Trophy, Sparkles, Maximize, X, Minimize } from "lucide-react";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { setFullScreenDisplay } from "@/server/actions/game";
 
 interface QuestionData {
   id: string;
@@ -139,6 +141,7 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
   const [eventScoreUpdated, setEventScoreUpdated] = useState<EventScoreUpdate | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
   const [questionVisible, setQuestionVisible] = useState(false);
+  const [fullScreen, setFullScreen] = useState(false);
 
   const [phaseAnnouncement, setPhaseAnnouncement] = useState<string | null>(null);
   const prevPhaseRef = useRef<string | null>(initialGame?.currentPhase ?? null);
@@ -153,8 +156,36 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
   const lastWarningBeep = useRef<number | null>(null);
   const prevCountdownNum = useRef<number | null>(null);
   const hasPlayedEndBeepRef = useRef<boolean>(false);
+  const bcRef = useRef<BroadcastChannel | null>(null);
 
   const { playWarning, playEnd, playCountdownBeep, playPhaseFanfare } = useSoundSystem();
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`lct_display_fullscreen_${gameId}`);
+      if (saved !== null) {
+        (async() => {
+          setFullScreen(saved === "true");
+        })();
+      }
+    }
+  }, [gameId]);
+
+  const handleToggleFullScreen = async (value: boolean) => {
+    setFullScreen(value);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`lct_display_fullscreen_${gameId}`, String(value));
+    }
+    if (bcRef.current) {
+      bcRef.current.postMessage({
+        type: "FULLSCREEN_TOGGLED",
+        gameId,
+        payload: { fullScreen: value },
+        timestamp: Date.now(),
+      });
+    }
+    await setFullScreenDisplay(gameId, value);
+  };
 
   const triggerPhaseAnimation = useCallback((newPhase: string) => {
     setPhaseAnnouncement(newPhase);
@@ -177,6 +208,12 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
           setEndsAt(msg.liveState.timer.endsAt);
           setCountdownEndsAt(msg.liveState.timer.countdownEndsAt);
           setTimerRemaining(msg.liveState.timer.remaining);
+          if (msg.liveState.fullScreen !== undefined) {
+            setFullScreen(msg.liveState.fullScreen);
+            if (typeof window !== "undefined") {
+              localStorage.setItem(`lct_display_fullscreen_${gameId}`, String(msg.liveState.fullScreen));
+            }
+          }
 
           if (
             msg.liveState.timer.status === "COUNTDOWN" ||
@@ -212,11 +249,19 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
   }, [gameId, triggerPhaseAnimation]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("BroadcastChannel" in window)) return;
+    if (typeof window !== "undefined" || !("BroadcastChannel" in window)) return;
 
     const bc = new BroadcastChannel(`lct-game-${gameId}`);
+    bcRef.current = bc;
     bc.onmessage = async (e) => {
       if (!e.data || e.data.gameId !== gameId) return;
+
+      if (e.data.type === "FULLSCREEN_TOGGLED" && e.data.payload?.fullScreen !== undefined) {
+        setFullScreen(e.data.payload.fullScreen);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(`lct_display_fullscreen_${gameId}`, String(e.data.payload.fullScreen));
+        }
+      }
 
       if (e.data.type === "PHASE_CHANGED" && e.data.payload?.phase) {
         const phase = e.data.payload.phase;
@@ -238,6 +283,12 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
           setEndsAt(data.liveState.timer.endsAt);
           setCountdownEndsAt(data.liveState.timer.countdownEndsAt);
           setTimerRemaining(data.liveState.timer.remaining);
+          if (data.liveState.fullScreen !== undefined) {
+            setFullScreen(data.liveState.fullScreen);
+            if (typeof window !== "undefined") {
+              localStorage.setItem(`lct_display_fullscreen_${gameId}`, String(data.liveState.fullScreen));
+            }
+          }
 
           if (
             data.liveState.timer.status === "COUNTDOWN" ||
@@ -329,7 +380,7 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
         setCountdownNum(null);
         setDisplayTimer(0);
       })();
-      
+
       return;
     }
 
@@ -406,11 +457,14 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
       )}
 
       {/* Header Bar */}
-      <div className="flex items-center justify-between px-8 py-4 border-b border-white/10 bg-white/2 backdrop-blur-md">
+      <div className={`flex items-center justify-between px-8 py-4 border-b border-white/10 bg-white/2 backdrop-blur-md transition-all duration-300 ${fullScreen ? "hidden" : ""}`}>
         <div className="flex items-center gap-4">
-          <span className="text-xl font-black tracking-wider text-amber-400 uppercase">
-            {game.group.round.tournament.name}
-          </span>
+          <div className="flex items-center gap-3">
+            <Image src={"/image/logo-css.png"} alt="LCT Logo" width={50} height={50} className="object-contain h-8 w-8" />
+            <span className="text-xl font-black tracking-wider text-amber-400 uppercase">
+              {game.group.round.tournament.name}
+            </span>
+          </div>
           <span className="rounded-xl bg-white/10 px-3.5 py-1 text-sm font-extrabold text-white/90">
             {game.group.round.name}
           </span>
@@ -427,10 +481,17 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
               Fase: {game.currentPhase}
             </span>
           )}
+
+          <Button variant="ghost" size="icon" onClick={() => handleToggleFullScreen(true)}>
+            <Maximize className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
-      <div className={`relative flex flex-1 flex-col items-center px-8 py-6 gap-6 ${game.currentPhase === "HASIL" ? "overflow-y-auto justify-start" : "overflow-hidden justify-center"}`}>
+      <div className={`relative flex flex-1 flex-col items-center px-8 pt-32 pb-12 gap-6 overflow-y-auto`}>
+        <Button variant="ghost" className={`w-8 h-8 absolute top-4 right-4 z-50 ${fullScreen ? '' : 'hidden'}`} size="icon" onClick={() => handleToggleFullScreen(false)}>
+          <Minimize className="h-5! w-5!" />
+        </Button>
         {game.currentPhase === "HASIL" ? (
           <div className="w-full max-w-6xl flex flex-col items-center justify-center space-y-8 px-4 animate-in fade-in zoom-in-95 duration-700">
             {/* Header / Title */}
@@ -602,7 +663,7 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
       </div>
 
       {game.currentPhase !== "HASIL" && (
-        <div className="flex flex-wrap items-stretch border-t border-white/10 bg-white/2 backdrop-blur-lg">
+        <div className={`flex justify-center flex-wrap items-stretch border-t border-white/10 bg-white/2 backdrop-blur-lg ${fullScreen ? "hidden" : ""}`}>
           {game.teams.map((gt, i) => (
             <div key={gt.id} className={`relative flex flex-1 max-w-96 items-center justify-between px-5 py-4 ${i > 0 ? "border-l border-white/10" : ""}`}>
               {eventScoreUpdated && eventScoreUpdated.teamId === gt.id && (eventScoreUpdated.scoreChange > 0 || eventScoreUpdated.type === "CHANGE") && <div className={`absolute left-1/2 transition-all duration-500 -translate-x-1/2 ${eventScoreUpdated.teamId === gt.id ? "-top-13 opacity-100" : "opacity-0 top-0"} border ${eventScoreUpdated.type === "CORRECT" ? "border-green-500/10 bg-green-500/15" : eventScoreUpdated.type === "WRONG" ? "border-red-500/10 bg-red-500/15" : "border-yellow-500/10 bg-yellow-500/15"} px-3 py-2 rounded-2xl`}>
