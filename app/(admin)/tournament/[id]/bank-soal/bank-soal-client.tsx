@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Plus, Search, Download, Upload, X } from "lucide-react";
+import { Plus, Search, Download, Upload, X, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,6 +15,7 @@ import QuestionTable from "@/components/features/question/question-table";
 import type { QuestionRow } from "@/components/features/question/question-table";
 import QuestionForm from "@/components/features/question/question-form";
 import QuestionImport from "@/components/features/question/question-import";
+import { deleteAllQuestions } from "@/server/actions/question";
 
 interface BankSoalClientProps {
   tournamentId: string;
@@ -37,6 +38,7 @@ export default function BankSoalClient({
   const [editData, setEditData] = useState<QuestionRow | null>(null);
   const [importing, setImporting] = useState(false);
   const [formOpenImport, setFormOpenImport] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   const filtered = useMemo(() => {
     return questions.filter((q) => {
@@ -75,6 +77,7 @@ export default function BankSoalClient({
       session: q.session,
       kind: q.kind,
       timeLimit: q.timeLimit,
+      image: q.image || "",
     }));
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -83,6 +86,19 @@ export default function BankSoalClient({
     a.download = `bank-soal-${tournamentName.replace(/\s+/g, "-")}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteAll = async () => {
+    if (!confirm("Yakin ingin menghapus SEMUA soal dalam turnamen ini? Tindakan ini tidak dapat dibatalkan.")) return;
+    setDeletingAll(true);
+    try {
+      await deleteAllQuestions(tournamentId);
+    } catch (err) {
+      console.error(err);
+      alert("Gagal menghapus semua soal.");
+    } finally {
+      setDeletingAll(false);
+    }
   };
 
   const hasActiveFilter =
@@ -128,6 +144,15 @@ export default function BankSoalClient({
           <Button size="lg" onClick={handleAdd}>
             <Plus />
             Tambah Soal
+          </Button>
+          <Button
+            size="lg"
+            disabled={deletingAll || questions.length === 0}
+            className="bg-destructive/10 border border-destructive text-destructive hover:bg-destructive/20 hover:text-destructive"
+            onClick={handleDeleteAll}
+          >
+            <Trash />
+            {deletingAll ? "Menghapus..." : "Hapus Semua"}
           </Button>
         </div>
       </div>

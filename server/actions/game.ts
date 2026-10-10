@@ -288,9 +288,7 @@ export async function markQuestionAnswered(data: {
         gameQuestionId: data.gameQuestionId,
         result: data.isCorrect ? "CORRECT" : "WRONG",
         scoreChange: data.scoreChange,
-        totalScore: data.isCorrect
-          ? gameTeam.score + data.scoreChange
-          : gameTeam.score - data.scoreChange,
+        totalScore: gameTeam.score,
       },
     });
   }

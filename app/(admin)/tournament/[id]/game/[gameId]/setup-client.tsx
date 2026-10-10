@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   ChevronLeft,
@@ -13,8 +13,19 @@ import {
   UsersRound,
   FileQuestion,
   Shuffle,
+  Search,
+  X,
+  Image as ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import {
   assignTeamToGame,
   removeTeamFromGame,
@@ -44,7 +55,15 @@ interface GameQuestionItem {
   id: string;
   order: number;
   status: string;
-  question: { id: string; question: string; answer: string; difficulty: string; session: string } | null;
+  question: {
+    id: string;
+    question: string;
+    answer: string;
+    difficulty: string;
+    session: string;
+    kind?: string;
+    image?: string | null;
+  } | null;
 }
 
 interface AvailableTeam {
@@ -60,6 +79,8 @@ interface AvailableQuestion {
   answer: string;
   difficulty: string;
   session: string;
+  kind?: string;
+  image?: string | null;
   usedInOtherGame?: boolean;
 }
 
@@ -91,6 +112,13 @@ const SESSION_LABELS: Record<string, string> = {
   REBUTAN: "Rebutan",
 };
 
+const KIND_LABELS: Record<string, string> = {
+  BIASA: "Biasa",
+  HITUNGAN: "Hitungan",
+};
+
+const ALL = "ALL";
+
 export default function GameSetupClient({
   gameId,
   tournamentId,
@@ -107,11 +135,42 @@ export default function GameSetupClient({
   const [randomizing, setRandomizing] = useState(false);
   const [randomizeResult, setRandomizeResult] = useState<string | null>(null);
 
+  const [searchQuestion, setSearchQuestion] = useState("");
+  const [filterDifficulty, setFilterDifficulty] = useState(ALL);
+  const [filterSession, setFilterSession] = useState(ALL);
+  const [filterKind, setFilterKind] = useState(ALL);
+
   const assignedTeamIds = new Set(gameTeams.map((gt) => gt.team.id));
   const unassignedTeams = availableTeams.filter((t) => !assignedTeamIds.has(t.id));
 
   const assignedQuestionIds = new Set(gameQuestions.map((gq) => gq.question?.id).filter(Boolean));
   const unassignedQuestions = availableQuestions.filter((q) => !assignedQuestionIds.has(q.id));
+
+  const filteredQuestions = useMemo(() => {
+    return unassignedQuestions.filter((q) => {
+      const matchSearch =
+        !searchQuestion ||
+        q.question.toLowerCase().includes(searchQuestion.toLowerCase()) ||
+        q.answer.toLowerCase().includes(searchQuestion.toLowerCase());
+      const matchDifficulty = filterDifficulty === ALL || q.difficulty === filterDifficulty;
+      const matchSession = filterSession === ALL || q.session === filterSession;
+      const matchKind = filterKind === ALL || (q.kind ?? "BIASA") === filterKind;
+      return matchSearch && matchDifficulty && matchSession && matchKind;
+    });
+  }, [unassignedQuestions, searchQuestion, filterDifficulty, filterSession, filterKind]);
+
+  const hasActiveFilter =
+    filterDifficulty !== ALL ||
+    filterSession !== ALL ||
+    filterKind !== ALL ||
+    searchQuestion.trim() !== "";
+
+  const clearQuestionFilters = () => {
+    setFilterDifficulty(ALL);
+    setFilterSession(ALL);
+    setFilterKind(ALL);
+    setSearchQuestion("");
+  };
 
   const nextQuestionOrder = gameQuestions.length > 0
     ? Math.max(...gameQuestions.map((gq) => gq.order)) + 1
@@ -270,7 +329,7 @@ export default function GameSetupClient({
             {gameTeams.length === 0 ? (
               <p className="text-sm text-muted-foreground">Belum ada tim. Tambahkan dari daftar di samping.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
                 {gameTeams.map((gt) => (
                   <div
                     key={gt.id}
@@ -305,7 +364,7 @@ export default function GameSetupClient({
               {unassignedTeams.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Semua tim sudah ditambahkan.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
                   {unassignedTeams.map((t) => (
                     <div
                       key={t.id}
@@ -409,7 +468,7 @@ export default function GameSetupClient({
             {gameQuestions.length === 0 ? (
               <p className="text-sm text-muted-foreground">Belum ada soal. Tambahkan dari daftar di samping.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-[74vh] overflow-y-auto pr-1">
                 {gameQuestions
                   .sort((a, b) => a.order - b.order)
                   .map((gq) => (
@@ -430,6 +489,17 @@ export default function GameSetupClient({
                               <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
                                 {SESSION_LABELS[gq.question.session] ?? gq.question.session}
                               </span>
+                              {gq.question.kind && (
+                                <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                                  {KIND_LABELS[gq.question.kind] ?? gq.question.kind}
+                                </span>
+                              )}
+                              {gq.question.image && (
+                                <span title="Soal memiliki gambar" className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+                                  <ImageIcon className="h-3 w-3" />
+                                  Gambar
+                                </span>
+                              )}
                             </>
                           )}
                         </div>
@@ -455,14 +525,80 @@ export default function GameSetupClient({
 
           {(game.status === "SETUP" || game.status === "IN_PROGRESS") && (
             <section>
-              <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                Bank Soal Tersedia
-              </h2>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                  Bank Soal Tersedia ({filteredQuestions.length} dari {unassignedQuestions.length})
+                </h2>
+                {hasActiveFilter && (
+                  <button
+                    type="button"
+                    onClick={clearQuestionFilters}
+                    className="inline-flex items-center gap-1 rounded-lg border border-destructive/30 px-2 py-0.5 text-[11px] font-bold text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                    Reset Filter
+                  </button>
+                )}
+              </div>
+
+              {/* Filter */}
+              <div className="mb-3 space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchQuestion}
+                    onChange={(e) => setSearchQuestion(e.target.value)}
+                    placeholder="Cari teks soal atau jawaban..."
+                    className="h-8 pl-8 text-xs"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <Select value={filterDifficulty} onValueChange={(v) => v && setFilterDifficulty(v)}>
+                    <SelectTrigger className="h-8 text-xs w-full">
+                      <SelectValue placeholder="Kesulitan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL}>Semua Tingkat</SelectItem>
+                      <SelectItem value="MUDAH">Mudah</SelectItem>
+                      <SelectItem value="SEDANG">Sedang</SelectItem>
+                      <SelectItem value="SUSAH">Sulit</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterKind} onValueChange={(v) => v && setFilterKind(v)}>
+                    <SelectTrigger className="h-8 text-xs w-full">
+                      <SelectValue placeholder="Jenis" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL}>Semua Jenis</SelectItem>
+                      <SelectItem value="BIASA">Biasa</SelectItem>
+                      <SelectItem value="HITUNGAN">Hitungan</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterSession} onValueChange={(v) => v && setFilterSession(v)}>
+                    <SelectTrigger className="h-8 text-xs w-full">
+                      <SelectValue placeholder="Sesi" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL}>Semua Sesi</SelectItem>
+                      <SelectItem value="WAJIB">Wajib</SelectItem>
+                      <SelectItem value="REBUTAN">Rebutan</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               {unassignedQuestions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Semua soal sudah ditambahkan.</p>
+              ) : filteredQuestions.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+                  Tidak ada soal yang cocok dengan filter yang dipilih.
+                </div>
               ) : (
-                <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-                  {unassignedQuestions.map((q) => (
+                <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+                  {filteredQuestions.map((q) => (
                     <div
                       key={q.id}
                       className={`flex items-start justify-between gap-3 rounded-xl border p-3 ${
@@ -479,6 +615,17 @@ export default function GameSetupClient({
                           <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
                             {SESSION_LABELS[q.session] ?? q.session}
                           </span>
+                          {q.kind && (
+                            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                              {KIND_LABELS[q.kind] ?? q.kind}
+                            </span>
+                          )}
+                          {q.image && (
+                            <span title="Soal memiliki gambar" className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+                              <ImageIcon className="h-3 w-3" />
+                              Gambar
+                            </span>
+                          )}
                           {q.usedInOtherGame && (
                             <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-600 dark:text-amber-400">
                               Sudah Terpakai

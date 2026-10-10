@@ -54,39 +54,58 @@ const QuestionImport = ({ tournamentId, open, onOpenChange, setImporting, import
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
                     <DialogTitle className="text-base font-bold">
                         Import Soal
                     </DialogTitle>
                     <DialogDescription>
-                        Pilih file Json yang berisi soal.
+                        Pilih file JSON yang berisi daftar soal untuk turnamen ini.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleImport} className="space-y-4">
-                    <details className='group bg-accent rounded-xl p-3'>
-                        <summary className='font-bold text-lg text-foreground list-none flex items-center justify-between'>
-                            Panduan Import
-                            <ChevronDown className="size-5 transition-transform group-open:rotate-180" />
+                    <details className='group bg-accent/60 border border-border rounded-xl p-3 text-xs'>
+                        <summary className='font-bold text-sm text-foreground list-none flex items-center justify-between cursor-pointer select-none'>
+                            Panduan Format JSON
+                            <ChevronDown className="size-4 transition-transform group-open:rotate-180 text-muted-foreground" />
                         </summary>
-                        <p>Format soal harus JSON berikut adalah contoh format soal:</p>
-                        <div className='bg-black/15 mt-1 p-3 rounded-xl'>
-                            <pre>
-                                {
-                                    JSON.stringify([
-                                        {
-                                            "question": "1 + 1",
-                                            "answer": "2",
-                                            "explanation": "Penjelasan (Boleh dikosongkan)",
-                                            "difficulty": "MUDAH",
-                                            "session": "WAJIB",
-                                            "kind": "BIASA",
-                                            "timeLimit": 30
-                                        }
-                                    ], null, 2)
-                                }
-                            </pre>
+                        <div className="mt-2.5 space-y-2 text-muted-foreground leading-relaxed">
+                            <p>
+                                File harus berupa <strong>Array JSON</strong> berisi objek soal. Kolom image bersifat opsional dan hanya menerima tautan URL gambar.
+                            </p>
+                            <div className="grid grid-cols-2 gap-1 text-[11px] bg-background/80 p-2 rounded-lg border border-border/50">
+                                <div><strong>difficulty:</strong> MUDAH | SEDANG | SUSAH</div>
+                                <div><strong>session:</strong> WAJIB | REBUTAN</div>
+                                <div><strong>kind:</strong> BIASA | HITUNGAN</div>
+                                <div><strong>image:</strong> URL (http/https) atau kosong</div>
+                            </div>
+                            <div className='bg-black/20 text-foreground p-3 rounded-lg overflow-x-auto max-h-52'>
+                                <pre className="font-mono text-[11px]">
+{JSON.stringify([
+  {
+    "question": "Berapakah hasil dari 2 + 2?",
+    "answer": "4",
+    "explanation": "Penjelasan jawaban (opsional)",
+    "difficulty": "MUDAH",
+    "session": "WAJIB",
+    "kind": "BIASA",
+    "timeLimit": 30,
+    "image": "https://contoh.com/gambar-soal.png"
+  },
+  {
+    "question": "Siapakah penemu bola lampu?",
+    "answer": "Thomas Alva Edison",
+    "explanation": "",
+    "difficulty": "SEDANG",
+    "session": "REBUTAN",
+    "kind": "BIASA",
+    "timeLimit": 20,
+    "image": ""
+  }
+], null, 2)}
+                                </pre>
+                            </div>
                         </div>
                     </details>
                     <input

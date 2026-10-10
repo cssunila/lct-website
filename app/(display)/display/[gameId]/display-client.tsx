@@ -599,26 +599,25 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
             )}
           </div>
         ) : showQuestionText ? (
-          <div className="w-full max-w-6xl text-center space-y-6 flex flex-col items-center animate-in fade-in duration-300">
+          <div className="w-full max-w-6xl text-center space-y-4 flex flex-col items-center animate-in fade-in duration-300">
             {questionData!.image && (
-              <div className="flex justify-center">
-                <Image
+              <div className="flex justify-center w-full">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src={questionData!.image}
                   alt="Gambar soal"
-                  width={500}
-                  height={500}
-                  className="max-h-[25vh] w-auto rounded-2xl border border-white/20 object-contain shadow-2xl"
+                  className="max-h-[30vh] max-w-[85vw] w-auto rounded-2xl border border-white/20 object-contain shadow-2xl bg-black/40 backdrop-blur-xs"
                 />
               </div>
             )}
 
-            <p className="w-full text-3xl max-h-[38vh] overflow-y-auto px-8 py-6 rounded-3xl bg-white/4 border border-white/10 font-black leading-snug tracking-wide text-white lg:text-4xl shadow-xl">
+            <p className={`w-full ${questionData!.image ? "text-2xl lg:text-3xl max-h-[24vh] px-6 py-4" : "text-3xl lg:text-4xl max-h-[38vh] px-8 py-6"} overflow-y-auto rounded-3xl bg-white/4 border border-white/10 font-black leading-snug tracking-wide text-white shadow-xl`}>
               {questionData!.question}
             </p>
 
-            <div className="flex items-center justify-center gap-3 py-2">
-              <Clock className={`h-8 w-8 ${isWarning ? "text-red-500 animate-bounce" : isExpired ? "text-red-500/60" : "text-amber-400"}`} />
-              <span className={`font-mono font-black text-6xl lg:text-7xl tabular-nums leading-none transition-all ${isWarning ? "text-red-500 scale-110 animate-pulse"
+            <div className="flex items-center justify-center gap-3 py-1">
+              <Clock className={`h-7 w-7 ${isWarning ? "text-red-500 animate-bounce" : isExpired ? "text-red-500/60" : "text-amber-400"}`} />
+              <span className={`font-mono font-black text-5xl lg:text-6xl tabular-nums leading-none transition-all ${isWarning ? "text-red-500 scale-110 animate-pulse"
                 : isExpired ? "text-red-500/60"
                   : "text-white"}`}>
                 {isExpired ? "00" : String(displayTimer).padStart(2, "0")}
@@ -626,11 +625,11 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
             </div>
 
             {showAnswer && questionData!.answer && (
-              <div className="w-full max-w-4xl space-y-2 rounded-3xl border-2 border-emerald-500/40 bg-emerald-500/15 p-6 backdrop-blur-md animate-in fade-in zoom-in-95 duration-300">
+              <div className="w-full max-w-4xl space-y-1.5 rounded-3xl border-2 border-emerald-500/40 bg-emerald-500/15 p-4 backdrop-blur-md animate-in fade-in zoom-in-95 duration-300">
                 <p className="text-xs font-extrabold uppercase tracking-widest text-emerald-400">Jawaban Benar:</p>
-                <p className="text-4xl font-black text-emerald-300 lg:text-5xl">{questionData!.answer}</p>
+                <p className="text-3xl font-black text-emerald-300 lg:text-4xl">{questionData!.answer}</p>
                 {questionData!.explanation && (
-                  <p className="text-lg text-white/70 pt-2 border-t border-emerald-500/20">{questionData!.explanation}</p>
+                  <p className="text-base text-white/70 pt-1.5 border-t border-emerald-500/20">{questionData!.explanation}</p>
                 )}
               </div>
             )}

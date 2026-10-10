@@ -9,9 +9,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, Clock } from "lucide-react";
+import { Pencil, Trash2, Clock, Image as ImageIcon } from "lucide-react";
 import IconBtn from "@/components/ui/iconButton";
 import { deleteQuestion } from "@/server/actions/question";
 import type { CreateQuestionInput } from "@/server/actions/question";
@@ -87,8 +85,15 @@ export default function QuestionTable({ questions, onEdit }: QuestionTableProps)
               <TableCell className="text-center text-muted-foreground">
                 {i + 1}
               </TableCell>
-              <TableCell className="max-w-[320px] truncate font-medium">
-                {q.question}
+              <TableCell className="max-w-[320px] font-medium">
+                <div className="flex items-center gap-2 min-w-0">
+                  {q.image && (
+                    <span title="Soal memiliki gambar" className="inline-flex items-center justify-center rounded p-1 bg-primary/10 text-primary shrink-0">
+                      <ImageIcon className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                  <span className="truncate">{q.question}</span>
+                </div>
               </TableCell>
               <TableCell className="max-w-40 truncate">{q.answer}</TableCell>
               <TableCell>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import {
     Dialog,
@@ -20,7 +20,8 @@ import {
     SelectItem,
 } from "@/components/ui/select";
 import type { CreateQuestionInput } from "@/server/actions/question";
-import { createQuestion, updateQuestion } from "@/server/actions/question";
+import { createQuestion, updateQuestion, uploadQuestionImage } from "@/server/actions/question";
+import { Image as ImageIcon, Upload, Link as LinkIcon, Trash2, Loader2 } from "lucide-react";
 
 interface QuestionFormProps {
     open: boolean;
@@ -57,6 +58,7 @@ export default function QuestionForm({
         reset,
         control,
         setValue,
+        watch,
         formState: { errors },
     } = useForm<CreateQuestionInput>({
         defaultValues: {
@@ -68,11 +70,20 @@ export default function QuestionForm({
             session: "WAJIB",
             kind: "BIASA",
             timeLimit: 15,
+            image: "",
         },
     });
 
     const [serverError, setServerError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [imageMode, setImageMode] = useState<"none" | "upload" | "url">("none");
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string | null>(null);
+    const [localPreview, setLocalPreview] = useState<string | null>(null);
+    const [imgError, setImgError] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const watchedImage = watch("image");
 
     useEffect(() => {
         if (editData) {
@@ -85,7 +96,17 @@ export default function QuestionForm({
                 session: editData.session,
                 kind: editData.kind,
                 timeLimit: editData.timeLimit,
+                image: editData.image ?? "",
             });
+            if (editData.image && editData.image.trim() !== "") {
+                if (editData.image.startsWith("http://") || editData.image.startsWith("https://")) {
+                    setImageMode("url");
+                } else {
+                    setImageMode("upload");
+                }
+            } else {
+                setImageMode("none");
+            }
         } else {
             reset({
                 tournamentId,
@@ -96,9 +117,75 @@ export default function QuestionForm({
                 session: "WAJIB",
                 kind: "BIASA",
                 timeLimit: 15,
+                image: "",
             });
+            setImageMode("none");
         }
+        setUploadError(null);
+        setServerError(null);
+        setLocalPreview(null);
+        setImgError(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
     }, [editData, tournamentId, reset, open]);
+
+    const handleModeChange = (mode: "none" | "upload" | "url") => {
+        setImageMode(mode);
+        setUploadError(null);
+        setLocalPreview(null);
+        setImgError(false);
+        if (mode === "none") {
+            setValue("image", "");
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        } else if (mode === "upload") {
+            if (watchedImage && (watchedImage.startsWith("http://") || watchedImage.startsWith("https://"))) {
+                setValue("image", "");
+            }
+        } else if (mode === "url") {
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            if (watchedImage && !watchedImage.startsWith("http://") && !watchedImage.startsWith("https://")) {
+                setValue("image", "");
+            }
+        }
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Preview langsung via object URL agar tidak menunggu network
+        const objectUrl = URL.createObjectURL(file);
+        setLocalPreview(objectUrl);
+        setImgError(false);
+        setUploading(true);
+        setUploadError(null);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await uploadQuestionImage(formData);
+            setValue("image", res.url);
+        } catch (err) {
+            setUploadError(err instanceof Error ? err.message : "Gagal mengunggah gambar");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setValue("image", val);
+        setLocalPreview(null);
+        setImgError(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const handleRemoveImage = () => {
+        setValue("image", "");
+        setImageMode("none");
+        setLocalPreview(null);
+        setUploadError(null);
+        setImgError(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
 
     const onSubmit = async (data: CreateQuestionInput) => {
         setLoading(true);
@@ -119,7 +206,7 @@ export default function QuestionForm({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg max-h-[92vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="text-base font-bold">
                         {editData ? "Edit Soal" : "Tambah Soal Baru"}
@@ -143,6 +230,132 @@ export default function QuestionForm({
                         />
                         {errors.question && (
                             <p className="text-xs text-destructive">{errors.question.message}</p>
+                        )}
+                    </div>
+
+                    {/* Gambar Soal */}
+                    <div className="space-y-2.5 rounded-xl border border-border p-3.5 bg-muted/20">
+                        <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                <ImageIcon className="h-4 w-4 text-primary" />
+                                Gambar Soal (Opsional)
+                            </label>
+                        </div>
+
+                        {/* Mode Selector (Mutually Exclusive) */}
+                        <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-muted p-1 text-xs">
+                            <button
+                                type="button"
+                                onClick={() => handleModeChange("none")}
+                                className={`rounded-md py-1.5 font-bold transition-all ${imageMode === "none"
+                                        ? "bg-card text-foreground shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                            >
+                                Tanpa Gambar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleModeChange("upload")}
+                                className={`rounded-md py-1.5 font-bold transition-all flex items-center justify-center gap-1 ${imageMode === "upload"
+                                        ? "bg-card text-foreground shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                            >
+                                <Upload className="h-3.5 w-3.5" />
+                                Upload File
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleModeChange("url")}
+                                className={`rounded-md py-1.5 font-bold transition-all flex items-center justify-center gap-1 ${imageMode === "url"
+                                        ? "bg-card text-foreground shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                            >
+                                <LinkIcon className="h-3.5 w-3.5" />
+                                Gunakan URL
+                            </button>
+                        </div>
+
+                        {imageMode === "upload" && (
+                            <div className="space-y-2 pt-1">
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                                        onChange={handleFileUpload}
+                                        disabled={uploading}
+                                        className="text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+                                    />
+                                    {uploading && (
+                                        <span className="flex items-center gap-1 text-xs text-primary font-medium">
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                            Mengunggah...
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-[11px] text-muted-foreground">
+                                    Format: JPG, PNG, WebP, GIF, SVG (Maks. 5MB).
+                                </p>
+                                {uploadError && (
+                                    <p className="text-xs text-destructive font-medium">{uploadError}</p>
+                                )}
+                            </div>
+                        )}
+
+                        {imageMode === "url" && (
+                            <div className="space-y-1.5 pt-1">
+                                <Input
+                                    type="url"
+                                    placeholder="https://example.com/gambar-soal.png"
+                                    value={watchedImage || ""}
+                                    onChange={handleUrlChange}
+                                    className="text-xs h-9"
+                                />
+                                <p className="text-[11px] text-muted-foreground">
+                                    Tempelkan URL langsung gambar yang dapat diakses publik.
+                                </p>
+                            </div>
+                        )}
+
+                        {(localPreview || (watchedImage && watchedImage.trim() !== "")) && (
+                            <div className="mt-2 rounded-lg border border-border bg-card p-2.5 flex flex-col sm:flex-row items-start gap-3">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                    src={localPreview || watchedImage}
+                                    alt="Preview Soal"
+                                    onError={() => setImgError(true)}
+                                    onLoad={() => setImgError(false)}
+                                    className="max-h-28 max-w-full rounded-md object-contain border border-border bg-black/5 dark:bg-white/5"
+                                />
+                                <div className="flex-1 min-w-0 text-center sm:text-left space-y-1">
+                                    {imgError ? (
+                                        <p className="text-xs text-destructive font-semibold">
+                                            Gambar gagal dimuat. Pastikan URL gambar valid atau file tidak korup.
+                                        </p>
+                                    ) : (
+                                        <>
+                                            <p className="text-xs text-muted-foreground max-w-xs font-mono">
+                                                {watchedImage || "File gambar dipilih"}
+                                            </p>
+                                            {watchedImage && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={handleRemoveImage}
+                                                    className="h-7 px-2 text-xs text-destructive bg-destructive/10 hover:bg-destructive/30 hover:text-destructive flex items-center gap-1"
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                    Hapus Gambar
+                                                </Button>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
                         )}
                     </div>
 

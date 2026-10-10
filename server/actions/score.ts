@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { broadcastGameEvent } from "@/lib/game-state";
 
 
 export async function undoScoreHistory(historyId: string) {
@@ -25,9 +26,15 @@ export async function undoScoreHistory(historyId: string) {
 
   if (!history) throw new Error("Score history tidak ditemukan");
 
+  const change = Math.abs(history.scoreChange);
   await prisma.gameTeam.update({
     where: { id: history.gameTeamId },
-    data: { score: { decrement: history.scoreChange } },
+    data: {
+      score:
+        history.result === "CORRECT"
+          ? { decrement: change }
+          : { increment: change },
+    },
   });
 
   if (history.gameQuestion) {
@@ -43,8 +50,12 @@ export async function undoScoreHistory(historyId: string) {
 
   await prisma.scoreHistory.delete({ where: { id: historyId } });
 
+  const gameId = history.gameTeam.gameId;
   const tournamentId = history.gameTeam.game.group.round.tournamentId;
+
+  broadcastGameEvent(gameId, "GAME_DATA_CHANGED");
+
   revalidatePath(`/tournament/${tournamentId}/history`);
-  revalidatePath(`/tournament/${tournamentId}/game/${history.gameTeam.gameId}`);
-  revalidatePath(`/tournament/${tournamentId}/game/${history.gameTeam.gameId}/live`);
+  revalidatePath(`/tournament/${tournamentId}/game/${gameId}`);
+  revalidatePath(`/tournament/${tournamentId}/game/${gameId}/live`);
 }

@@ -25,6 +25,7 @@ import {
   Minimize,
   Keyboard,
   X,
+  Image as ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -124,7 +125,7 @@ const InputLiveScoreChange = ({ gameTeamId, score, broadcastLocal }: { gameTeamI
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <input type="text" value={scoreTim} onChange={(e) => setScoreTim(Number(e.target.value.replace(/[^0-9]/g, "")))} className="text-xl text-end w-full border-0 outline-0 font-black tabular-nums" />
+      <input type="number" value={scoreTim} onChange={(e) => setScoreTim(Number(e.target.value))} className="text-xl text-end w-full border-0 outline-0 font-black tabular-nums" />
       {changeInput && <Button size="sm" className="h-8 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs" onClick={() => handleScoreChange()}>
         Submit
       </Button>}
@@ -725,11 +726,12 @@ export default function GameControlClient({
                   <div className="flex flex-wrap gap-2">
                     {questionWajib.map((gq, i) => (
                       <button key={gq.id} disabled={game.currentPhase !== "WAJIB" || timerIsActive} onClick={() => goToQuestion(gq)}
-                        className={`inline-flex h-10 min-w-10 px-3 items-center justify-center rounded-xl text-xs font-black transition-all ${gq.id === currentIdx ? "bg-amber-500 text-white shadow-md ring-2 ring-amber-400 scale-105"
+                        className={`inline-flex h-10 min-w-10 px-3 items-center justify-center gap-1 rounded-xl text-xs font-black transition-all ${gq.id === currentIdx ? "bg-amber-500 text-white shadow-md ring-2 ring-amber-400 scale-105"
                           : gq.status === "ANSWERED" ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
                             : game.currentPhase === "WAJIB" ? "bg-card text-foreground hover:bg-amber-500/20 hover:text-amber-600 border border-border"
                               : "bg-muted text-muted-foreground cursor-not-allowed"}`}>
-                        {i + 1}
+                        <span>{i + 1}</span>
+                        {gq.question?.image && <ImageIcon className="h-2.5 w-2.5 opacity-80" />}
                       </button>
                     ))}
                   </div>
@@ -749,11 +751,12 @@ export default function GameControlClient({
                   <div className="flex flex-wrap gap-2">
                     {questionRebutan.map((gq, i) => (
                       <button key={gq.id} disabled={game.currentPhase !== "REBUTAN" || timerIsActive} onClick={() => goToQuestion(gq)}
-                        className={`inline-flex h-10 min-w-10 px-3 items-center justify-center rounded-xl text-xs font-black transition-all ${gq.id === currentIdx ? "bg-red-600 text-white shadow-md ring-2 ring-red-400 scale-105"
+                        className={`inline-flex h-10 min-w-10 px-3 items-center justify-center gap-1 rounded-xl text-xs font-black transition-all ${gq.id === currentIdx ? "bg-red-600 text-white shadow-md ring-2 ring-red-400 scale-105"
                           : gq.status === "ANSWERED" ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
                             : game.currentPhase === "REBUTAN" ? "bg-card text-foreground hover:bg-red-500/20 hover:text-red-600 border border-border"
                               : "bg-muted text-muted-foreground cursor-not-allowed"}`}>
-                        {i + 1}
+                        <span>{i + 1}</span>
+                        {gq.question?.image && <ImageIcon className="h-2.5 w-2.5 opacity-80" />}
                       </button>
                     ))}
                   </div>
@@ -780,6 +783,12 @@ export default function GameControlClient({
                   <span className="rounded-lg bg-muted px-2.5 py-1 text-xs font-bold text-muted-foreground">
                     Limit: {currentQuestion.timeLimit}s
                   </span>
+                  {currentQuestion.image && (
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-blue-500/15 px-2.5 py-1 text-xs font-extrabold text-blue-600 dark:text-blue-400">
+                      <ImageIcon className="h-3.5 w-3.5" />
+                      Soal Bergambar
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
@@ -810,6 +819,17 @@ export default function GameControlClient({
                 <p className="text-xl font-extrabold leading-relaxed text-foreground">
                   {currentQuestion.question}
                 </p>
+
+                {currentQuestion.image && (
+                  <div className="rounded-xl border border-border bg-muted/20 p-2.5 flex justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={currentQuestion.image}
+                      alt="Gambar Soal"
+                      className="max-h-48 max-w-full rounded-lg object-contain shadow-xs border border-border bg-black/5 dark:bg-white/5"
+                    />
+                  </div>
+                )}
                 {showAnswer && (
                   <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-1">
                     <p className="text-xs font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
@@ -975,7 +995,14 @@ export default function GameControlClient({
                     <p className="text-sm font-bold truncate flex items-center gap-1.5">
                       {gt.team.name}
                       {!gt.team.qualified && (
-                        <span className="text-[10px] text-red-500 font-extrabold uppercase">(Gugur)</span>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleQualification(gt.team.id, false)}
+                          className="text-[10px] text-red-500 hover:text-emerald-600 dark:hover:text-emerald-400 font-extrabold uppercase underline underline-offset-2 transition-colors cursor-pointer"
+                          title="Klik untuk membatalkan gugur / loloskan kembali tim"
+                        >
+                          (Gugur - Loloskan)
+                        </button>
                       )}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">{gt.team.school}</p>

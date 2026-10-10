@@ -1,10 +1,14 @@
 ## Getting Started
-First, run the development server:
-
+Ketika pertama kali ngeclone project, Jalankan perintah 
 ```bash
-pnpm dev
-#or
+pnpm install
+```
+untuk menginstall semua dependencies yang dibutuhkan, Lalu jalankan perintah
+```bash
 pnpm build
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+kemudian jalankan perintah
+```bash
+pnpm start
+```
+untuk menjalankan project.

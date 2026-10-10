@@ -131,6 +131,10 @@ export function sanitizeGameDataForDisplay(
           isCurrentQuestion && !liveState.questionVisible
             ? undefined
             : gq.question.question,
+        image:
+          isCurrentQuestion && !liveState.questionVisible
+            ? undefined
+            : gq.question.image,
       },
     };
   });
