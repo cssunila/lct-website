@@ -516,11 +516,10 @@ export default function GameSetupClient({
                   size="sm"
                   variant="outline"
                   onClick={handleResetGame}
-                  disabled={resetting}
+                  disabled={true}
                   className="h-7 text-xs border-amber-500/40 text-amber-600 hover:bg-amber-500/10"
                 >
-                  <RotateCcw className="h-3 w-3 mr-1" />
-                  Reset Semua ({answeredQuestionsCount} terjawab)
+                  {answeredQuestionsCount} Soal terjawab
                 </Button>
               )}
             </div>
