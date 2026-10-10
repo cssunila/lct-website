@@ -561,3 +561,161 @@ export async function transitionTimerToRunning(gameId: string) {
     },
   }));
 }
+
+export async function resetGameProgress(gameId: string) {
+  const game = await prisma.game.findUnique({
+    where: { id: gameId },
+    include: {
+      group: {
+        include: {
+          round: { select: { tournamentId: true } },
+        },
+      },
+    },
+  });
+
+  if (!game) throw new Error("Game tidak ditemukan");
+
+  const tournamentId = game.group.round.tournamentId;
+
+  await prisma.scoreHistory.deleteMany({
+    where: {
+      gameTeam: { gameId },
+    },
+  });
+
+
+  await prisma.gameQuestion.updateMany({
+    where: { gameId },
+    data: {
+      status: "UNANSWERED",
+      answeredByGameTeamId: null,
+      isCorrect: null,
+    },
+  });
+
+  await prisma.gameTeam.updateMany({
+    where: { gameId },
+    data: {
+      score: 0,
+      rank: null,
+    },
+  });
+
+  await prisma.game.update({
+    where: { id: gameId },
+    data: {
+      status: "SETUP",
+      currentPhase: "SETUP",
+      currentQuestionId: null,
+      startedAt: null,
+      endedAt: null,
+    },
+  });
+
+  updateGameLiveState(gameId, (prev) => ({
+    ...prev,
+    currentQuestionId: null,
+    showAnswer: false,
+    questionVisible: false,
+    timer: {
+      timeLimit: 30,
+      remaining: 30,
+      status: "STOPPED",
+      endsAt: null,
+      countdownEndsAt: null,
+    },
+  }));
+
+  broadcastGameEvent(gameId, "GAME_DATA_CHANGED");
+  broadcastGameEvent(gameId, "PHASE_CHANGED", { phase: "SETUP" });
+
+  revalidatePath(`/tournament/${tournamentId}/game`);
+  revalidatePath(`/tournament/${tournamentId}/game/${gameId}`);
+  revalidatePath(`/tournament/${tournamentId}/game/${gameId}/live`);
+  revalidatePath(`/tournament/${tournamentId}/history`);
+  revalidatePath(`/display/${gameId}`);
+
+  return { success: true };
+}
+
+export async function resetSingleGameQuestion(gameQuestionId: string) {
+  const gq = await prisma.gameQuestion.findUnique({
+    where: { id: gameQuestionId },
+    include: {
+      game: {
+        include: {
+          group: { include: { round: { select: { tournamentId: true } } } },
+        },
+      },
+      histories: true,
+    },
+  });
+
+  if (!gq) throw new Error("Soal game tidak ditemukan");
+
+  for (const hist of gq.histories) {
+    const change = Math.abs(hist.scoreChange);
+    await prisma.gameTeam.update({
+      where: { id: hist.gameTeamId },
+      data: {
+        score:
+          hist.result === "CORRECT"
+            ? { decrement: change }
+            : { increment: change },
+      },
+    });
+  }
+
+  await prisma.scoreHistory.deleteMany({
+    where: { gameQuestionId },
+  });
+
+  await prisma.gameQuestion.update({
+    where: { id: gameQuestionId },
+    data: {
+      status: "UNANSWERED",
+      answeredByGameTeamId: null,
+      isCorrect: null,
+    },
+  });
+
+  const gameId = gq.gameId;
+  const tournamentId = gq.game.group.round.tournamentId;
+
+  const currentLive = getGameLiveState(gameId);
+  if (currentLive.currentQuestionId === gameQuestionId) {
+    updateGameLiveState(gameId, (prev) => ({
+      ...prev,
+      showAnswer: false,
+    }));
+  }
+
+  broadcastGameEvent(gameId, "GAME_DATA_CHANGED");
+
+  revalidatePath(`/tournament/${tournamentId}/game`);
+  revalidatePath(`/tournament/${tournamentId}/game/${gameId}`);
+  revalidatePath(`/tournament/${tournamentId}/game/${gameId}/live`);
+  revalidatePath(`/tournament/${tournamentId}/history`);
+  revalidatePath(`/display/${gameId}`);
+
+  return { success: true };
+}
+
+export async function resetAllGamesInTournament(tournamentId: string) {
+  const games = await prisma.game.findMany({
+    where: {
+      group: { round: { tournamentId } },
+    },
+    select: { id: true },
+  });
+
+  for (const g of games) {
+    await resetGameProgress(g.id);
+  }
+
+  revalidatePath(`/tournament/${tournamentId}/game`);
+  revalidatePath(`/tournament/${tournamentId}/history`);
+
+  return { count: games.length };
+}

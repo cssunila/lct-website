@@ -16,6 +16,7 @@ import {
   Search,
   X,
   Image as ImageIcon,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,8 @@ import {
   removeQuestionFromGame,
   updateGameStatus,
   randomizeQuestionsForGame,
+  resetGameProgress,
+  resetSingleGameQuestion,
 } from "@/server/actions/game";
 
 interface GameTeamItem {
@@ -223,6 +226,36 @@ export default function GameSetupClient({
     }
   };
 
+  const [resetting, setResetting] = useState(false);
+
+  const answeredQuestionsCount = gameQuestions.filter((gq) => gq.status === "ANSWERED").length;
+
+  const handleResetGame = async () => {
+    if (
+      !confirm(
+        "Yakin ingin mereset SEMUA soal dan skor di game ini?"
+      )
+    )
+      return;
+    setResetting(true);
+    try {
+      await resetGameProgress(gameId);
+    } catch (err) {
+      alert((err as Error).message || "Gagal mereset game.");
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const handleResetQuestion = async (gqId: string) => {
+    if (!confirm("Reset soal ini agar bisa dijawab kembali?")) return;
+    try {
+      await resetSingleGameQuestion(gqId);
+    } catch (err) {
+      alert((err as Error).message || "Gagal mereset soal.");
+    }
+  };
+
   const handleStartGame = async () => {
     if (gameTeams.length < 2) {
       alert("Minimal 2 tim harus ditambahkan ke game.");
@@ -251,6 +284,18 @@ export default function GameSetupClient({
           </p>
           <h1 className="mt-0.5 text-2xl font-extrabold">Setup Game</h1>
         </div>
+        {(game.status !== "SETUP" || answeredQuestionsCount > 0) && (
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={handleResetGame}
+            disabled={resetting}
+            className="border-amber-500/40 text-amber-600 hover:bg-amber-500/10 hover:text-amber-500 font-bold"
+          >
+            <RotateCcw className={`h-4 w-4 mr-1.5 ${resetting ? "animate-spin" : ""}`} />
+            {resetting ? "Mereset..." : "Reset Game & Soal"}
+          </Button>
+        )}
         <Link
           href={`/display/${gameId}`}
           target="_blank"
@@ -462,9 +507,24 @@ export default function GameSetupClient({
             </div>
           )}
           <section>
-            <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-muted-foreground">
-              Soal di Game Ini
-            </h2>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                Soal di Game Ini ({gameQuestions.length})
+              </h2>
+              {answeredQuestionsCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleResetGame}
+                  disabled={resetting}
+                  className="h-7 text-xs border-amber-500/40 text-amber-600 hover:bg-amber-500/10"
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" />
+                  Reset Semua ({answeredQuestionsCount} terjawab)
+                </Button>
+              )}
+            </div>
+
             {gameQuestions.length === 0 ? (
               <p className="text-sm text-muted-foreground">Belum ada soal. Tambahkan dari daftar di samping.</p>
             ) : (
@@ -474,13 +534,22 @@ export default function GameSetupClient({
                   .map((gq) => (
                     <div
                       key={gq.id}
-                      className="flex items-start justify-between gap-3 rounded-xl border border-border bg-card p-3"
+                      className={`flex items-start justify-between gap-3 rounded-xl border p-3 ${
+                        gq.status === "ANSWERED"
+                          ? "border-emerald-500/30 bg-emerald-500/5"
+                          : "border-border bg-card"
+                      }`}
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-extrabold text-primary">
                             {gq.order}
                           </span>
+                          {gq.status === "ANSWERED" && (
+                            <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                              Sudah Dijawab
+                            </span>
+                          )}
                           {gq.question && (
                             <>
                               <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${DIFFICULTY_COLORS[gq.question.difficulty] ?? ""}`}>
@@ -507,16 +576,29 @@ export default function GameSetupClient({
                           {gq.question?.question ?? "Soal dihapus"}
                         </p>
                       </div>
-                      {game.status === "SETUP" && (
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => handleRemoveQuestion(gq.id)}
-                          className="shrink-0 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {gq.status === "ANSWERED" && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            title="Reset soal ini agar bisa dijawab kembali"
+                            onClick={() => handleResetQuestion(gq.id)}
+                            className="text-amber-600 hover:bg-amber-500/10 hover:text-amber-500"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {game.status === "SETUP" && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => handleRemoveQuestion(gq.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
               </div>

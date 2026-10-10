@@ -23,8 +23,6 @@ import {
   Check,
   Maximize,
   Minimize,
-  Keyboard,
-  X,
   Image as ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,6 +39,8 @@ import {
   // adjustLiveTimer,
   transitionTimerToRunning,
   changeScoreTim,
+  resetGameProgress,
+  resetSingleGameQuestion,
 } from "@/server/actions/game";
 import { toggleTeamQualification } from "@/server/actions/team";
 import { TimerState } from "@/lib/game-state";
@@ -467,6 +467,42 @@ export default function GameControlClient({
     broadcastLocal("GAME_FINISHED");
   };
 
+  // const [resettingGame, setResettingGame] = useState(false);
+
+  // const handleResetGame = async () => {
+  //   if (
+  //     !confirm(
+  //       "Yakin ingin mereset pertandingan ini?"
+  //     )
+  //   )
+  //     return;
+  //   setResettingGame(true);
+  //   try {
+  //     await resetGameProgress(gameId);
+  //     broadcastLocal("GAME_DATA_CHANGED");
+  //     broadcastLocal("PHASE_CHANGED", { phase: "SETUP" });
+  //     setCurrentIdx(null);
+  //     setShowAnswerState(false);
+  //     setCountdownNum(null);
+  //     setDisplayTimer(30);
+  //   } catch (err) {
+  //     alert((err as Error).message || "Gagal mereset pertandingan.");
+  //   } finally {
+  //     setResettingGame(false);
+  //   }
+  // };
+
+  // const handleResetCurrentQuestion = async (gqId: string) => {
+  //   if (!confirm("Reset soal ini agar bisa dijawab kembali?")) return;
+  //   try {
+  //     await resetSingleGameQuestion(gqId);
+  //     broadcastLocal("GAME_DATA_CHANGED");
+  //     setShowAnswerState(false);
+  //   } catch (err) {
+  //     alert((err as Error).message || "Gagal mereset soal.");
+  //   }
+  // };
+
   const questionWajib = questions.filter((q) => q.question?.session === "WAJIB");
   const questionRebutan = questions.filter((q) => q.question?.session === "REBUTAN");
 
@@ -563,6 +599,15 @@ export default function GameControlClient({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* <Button
+            variant="outline"
+            className="rounded-xl border-amber-500/40 text-amber-600 hover:bg-amber-500/10 hover:text-amber-500 font-bold"
+            onClick={handleResetGame}
+            disabled={resettingGame}
+          >
+            <RotateCcw className={`h-4 w-4 mr-1.5 ${resettingGame ? "animate-spin" : ""}`} />
+            {resettingGame ? "Mereset..." : "Reset Pertandingan"}
+          </Button> */}
           <Link href={`/display/${gameId}`} target="_blank" className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm transition-transform hover:scale-105 active:scale-95">
             <Monitor className="h-4 w-4" />
             Buka Display
@@ -877,11 +922,20 @@ export default function GameControlClient({
               )}
 
               {currentGQ && currentGQ.status === "ANSWERED" && (
-                <div className="border-t border-border pt-4">
+                <div className="border-t border-border pt-4 flex flex-wrap items-center justify-between gap-2">
                   <p className={`text-sm font-bold ${currentGQ.isCorrect ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                     Dijawab: {currentGQ.isCorrect ? "BENAR" : "SALAH"}
                     {currentGQ.answeredBy && ` oleh ${currentGQ.answeredBy.team.name}`}
                   </p>
+                  {/* <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs font-bold border-amber-500/40 text-amber-600 hover:bg-amber-500/10 hover:text-amber-500"
+                    onClick={() => handleResetCurrentQuestion(currentGQ.id)}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                    Reset Soal
+                  </Button> */}
                 </div>
               )}
             </div>

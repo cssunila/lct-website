@@ -9,9 +9,15 @@ import {
   ExternalLink,
   Users,
   BookOpen,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createGame, deleteGame } from "@/server/actions/game";
+import {
+  createGame,
+  deleteGame,
+  resetGameProgress,
+  resetAllGamesInTournament,
+} from "@/server/actions/game";
 
 interface GameItem {
   id: string;
@@ -57,6 +63,34 @@ export default function GameListClient({
     await deleteGame(id);
   };
 
+  const handleReset = async (id: string) => {
+    if (
+      !confirm(
+        "Yakin ingin mereset game ini?"
+      )
+    )
+      return;
+    try {
+      await resetGameProgress(id);
+    } catch (err) {
+      alert((err as Error).message || "Gagal mereset game.");
+    }
+  };
+
+  const handleResetAll = async () => {
+    if (
+      !confirm(
+        "PERINGATAN: Yakin ingin mereset SEMUA game dalam turnamen ini?"
+      )
+    )
+      return;
+    try {
+      await resetAllGamesInTournament(tournamentId);
+    } catch (err) {
+      alert((err as Error).message || "Gagal mereset semua game.");
+    }
+  };
+
   return (
     <div className="p-4 md:p-8">
       {/* Header */}
@@ -73,6 +107,17 @@ export default function GameListClient({
           </p>
           <h1 className="mt-0.5 text-2xl font-extrabold">Game</h1>
         </div>
+        {games.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetAll}
+            className="h-8 text-xs font-bold border-amber-500/40 text-amber-600 hover:bg-amber-500/10 hover:text-amber-500"
+          >
+            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+            Reset Semua Game
+          </Button>
+        )}
       </div>
 
       {availableGroups.length > 0 && (
@@ -169,6 +214,15 @@ export default function GameListClient({
                   <ExternalLink className="h-3 w-3" />
                   Display
                 </Link>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="Reset soal dan skor game ini ke awal"
+                  onClick={() => handleReset(game.id)}
+                  className="text-amber-600 hover:bg-amber-500/10 hover:text-amber-500"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon-sm"
