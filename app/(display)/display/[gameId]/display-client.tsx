@@ -15,6 +15,7 @@ interface QuestionData {
   session: string;
   timeLimit: number;
   image: string | null;
+  answerImage?: string | null;
 }
 
 interface GameQuestionData {
@@ -488,12 +489,12 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
         </div>
       </div>
 
-      <div className={`relative flex flex-1 flex-col items-center px-8 pt-32 pb-12 gap-6 overflow-y-auto`}>
+      <div className={`relative flex flex-1 flex-col items-center px-4 md:px-8 py-4 md:py-6 gap-3 lg:gap-4 overflow-y-auto`}>
         <Button variant="ghost" className={`w-8 h-8 absolute top-4 right-4 z-50 ${fullScreen ? '' : 'hidden'}`} size="icon" onClick={() => handleToggleFullScreen(false)}>
           <Minimize className="h-5! w-5!" />
         </Button>
         {game.currentPhase === "HASIL" ? (
-          <div className="w-full max-w-6xl flex flex-col items-center justify-center space-y-8 px-4 animate-in fade-in zoom-in-95 duration-700">
+          <div className="w-full max-w-6xl flex flex-col items-center justify-center space-y-8 px-4 my-auto animate-in fade-in zoom-in-95 duration-700">
             {/* Header / Title */}
             <div className="flex flex-col items-center text-center space-y-3">
               <div className="inline-flex items-center gap-2.5 rounded-2xl bg-amber-500/10 px-6 py-2 border border-amber-500/30 shadow-2xl backdrop-blur-md">
@@ -599,43 +600,105 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
             )}
           </div>
         ) : showQuestionText ? (
-          <div className="w-full max-w-6xl text-center space-y-4 flex flex-col items-center animate-in fade-in duration-300">
-            {questionData!.image && (
-              <div className="flex justify-center w-full">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={questionData!.image}
-                  alt="Gambar soal"
-                  className="max-h-[30vh] max-w-[85vw] w-auto rounded-2xl border border-white/20 object-contain shadow-2xl bg-black/40 backdrop-blur-xs"
-                />
-              </div>
-            )}
+          <div className="w-full max-w-6xl text-center flex flex-col items-center gap-2.5 lg:gap-3.5 my-auto animate-in fade-in duration-300">
+            {showAnswer && questionData!.answerImage && questionData!.image ? (
+              <>
+                <p className="w-full text-xl md:text-2xl lg:text-3xl px-6 py-2.5 rounded-2xl bg-white/4 border border-white/10 font-black leading-snug tracking-wide text-white shadow-xl">
+                  {questionData!.question}
+                </p>
 
-            <p className={`w-full ${questionData!.image ? "text-2xl lg:text-3xl max-h-[24vh] px-6 py-4" : "text-3xl lg:text-4xl max-h-[38vh] px-8 py-6"} overflow-y-auto rounded-3xl bg-white/4 border border-white/10 font-black leading-snug tracking-wide text-white shadow-xl`}>
-              {questionData!.question}
-            </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4 w-full items-stretch">
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-white/15 bg-black/40 p-2.5 shadow-2xl backdrop-blur-xs">
+                    <span className="text-[11px] font-extrabold uppercase tracking-widest text-white/70 mb-1.5">
+                      Gambar Soal
+                    </span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={questionData!.image}
+                      alt="Gambar soal"
+                      className="max-h-[38vh] lg:max-h-[44vh] max-w-full w-auto rounded-xl object-contain"
+                    />
+                  </div>
 
-            <div className="flex items-center justify-center gap-3 py-1">
-              <Clock className={`h-7 w-7 ${isWarning ? "text-red-500 animate-bounce" : isExpired ? "text-red-500/60" : "text-amber-400"}`} />
-              <span className={`font-mono font-black text-5xl lg:text-6xl tabular-nums leading-none transition-all ${isWarning ? "text-red-500 scale-110 animate-pulse"
-                : isExpired ? "text-red-500/60"
-                  : "text-white"}`}>
-                {isExpired ? "00" : String(displayTimer).padStart(2, "0")}
-              </span>
-            </div>
+                  <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-emerald-500/40 bg-emerald-500/10 p-2.5 shadow-2xl backdrop-blur-xs">
+                    <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-400 mb-1.5">
+                      Gambar Jawaban Benar
+                    </span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={questionData!.answerImage}
+                      alt="Jawaban Benar"
+                      className="max-h-[38vh] lg:max-h-[44vh] max-w-full w-auto rounded-xl object-contain border border-emerald-400/40"
+                    />
+                  </div>
+                </div>
 
-            {showAnswer && questionData!.answer && (
-              <div className="w-full max-w-4xl space-y-1.5 rounded-3xl border-2 border-emerald-500/40 bg-emerald-500/15 p-4 backdrop-blur-md animate-in fade-in zoom-in-95 duration-300">
-                <p className="text-xs font-extrabold uppercase tracking-widest text-emerald-400">Jawaban Benar:</p>
-                <p className="text-3xl font-black text-emerald-300 lg:text-4xl">{questionData!.answer}</p>
+                <div className="flex items-center justify-center gap-3 py-0.5">
+                  <Clock className={`h-6 w-6 ${isWarning ? "text-red-500 animate-bounce" : isExpired ? "text-red-500/60" : "text-amber-400"}`} />
+                  <span className={`font-mono font-black text-4xl lg:text-5xl tabular-nums leading-none transition-all ${isWarning ? "text-red-500 scale-110 animate-pulse"
+                    : isExpired ? "text-red-500/60"
+                      : "text-white"}`}>
+                    {isExpired ? "00" : String(displayTimer).padStart(2, "0")}
+                  </span>
+                </div>
+
                 {questionData!.explanation && (
-                  <p className="text-base text-white/70 pt-1.5 border-t border-emerald-500/20">{questionData!.explanation}</p>
+                  <p className="text-sm text-emerald-300/80 px-4 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 max-w-3xl">
+                    {questionData!.explanation}
+                  </p>
                 )}
-              </div>
+              </>
+            ) : (
+              <>
+                {questionData!.image && (
+                  <div className="flex justify-center w-full">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={questionData!.image}
+                      alt="Gambar soal"
+                      className="max-h-[40vh] lg:max-h-[46vh] max-w-[88vw] w-auto rounded-2xl border border-white/20 object-contain shadow-2xl bg-black/40 backdrop-blur-xs"
+                    />
+                  </div>
+                )}
+
+                <p className={`w-full ${questionData!.image ? "text-xl md:text-2xl lg:text-3xl px-6 py-2.5" : "text-2xl md:text-3xl lg:text-4xl px-8 py-4"} rounded-3xl bg-white/4 border border-white/10 font-black leading-snug tracking-wide text-white shadow-xl`}>
+                  {questionData!.question}
+                </p>
+
+                <div className="flex items-center justify-center gap-3 py-0.5">
+                  <Clock className={`h-7 w-7 ${isWarning ? "text-red-500 animate-bounce" : isExpired ? "text-red-500/60" : "text-amber-400"}`} />
+                  <span className={`font-mono font-black text-5xl lg:text-6xl tabular-nums leading-none transition-all ${isWarning ? "text-red-500 scale-110 animate-pulse"
+                    : isExpired ? "text-red-500/60"
+                      : "text-white"}`}>
+                    {isExpired ? "00" : String(displayTimer).padStart(2, "0")}
+                  </span>
+                </div>
+
+                {showAnswer && (questionData!.answer || questionData!.answerImage) && (
+                  <div className="w-full max-w-4xl space-y-2 rounded-3xl border-2 border-emerald-500/40 bg-emerald-500/15 p-3.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-300">
+                    <p className="text-xs font-extrabold uppercase tracking-widest text-emerald-400">Jawaban Benar:</p>
+                    {questionData!.answerImage ? (
+                      <div className="flex justify-center py-1">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={questionData!.answerImage}
+                          alt="Jawaban Benar"
+                          className="max-h-[42vh] lg:max-h-[48vh] max-w-full rounded-2xl border-2 border-emerald-400/50 object-contain shadow-2xl bg-black/40"
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-3xl font-black text-emerald-300 lg:text-4xl">{questionData!.answer}</p>
+                    )}
+                    {questionData!.explanation && (
+                      <p className="text-sm text-white/70 pt-1 border-t border-emerald-500/20">{questionData!.explanation}</p>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         ) : (
-          <div className="text-center space-y-6 max-w-4xl px-6 animate-in zoom-in-95 duration-300">
+          <div className="text-center space-y-6 max-w-4xl px-6 my-auto animate-in zoom-in-95 duration-300">
             <div className="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-5 py-2 border border-white/10 shadow-xl">
               <Sparkles className="h-5 w-5 text-amber-400" />
               <span className="text-xs font-black uppercase tracking-widest text-white/80">

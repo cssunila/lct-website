@@ -59,6 +59,7 @@ interface GameQuestionItem {
     session: string;
     timeLimit: number;
     image: string | null;
+    answerImage?: string | null;
   } | null;
   answeredBy: { team: { name: string } } | null;
 }
@@ -835,7 +836,18 @@ export default function GameControlClient({
                     <p className="text-xs font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                       Jawaban:
                     </p>
-                    <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">{currentQuestion.answer}</p>
+                    {currentQuestion.answerImage ? (
+                      <div className="pt-1">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={currentQuestion.answerImage}
+                          alt="Jawaban"
+                          className="max-h-48 rounded-lg border border-emerald-500/30 object-contain bg-black/5"
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">{currentQuestion.answer}</p>
+                    )}
                     {currentQuestion.explanation && (
                       <p className="text-xs text-muted-foreground pt-1 border-t border-emerald-500/20">
                         {currentQuestion.explanation}

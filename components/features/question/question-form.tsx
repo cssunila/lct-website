@@ -65,6 +65,7 @@ export default function QuestionForm({
             tournamentId,
             question: "",
             answer: "",
+            answerImage: "",
             explanation: "",
             difficulty: "SEDANG",
             session: "WAJIB",
@@ -76,6 +77,7 @@ export default function QuestionForm({
 
     const [serverError, setServerError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+
     const [imageMode, setImageMode] = useState<"none" | "upload" | "url">("none");
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
@@ -83,14 +85,24 @@ export default function QuestionForm({
     const [imgError, setImgError] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const [answerType, setAnswerType] = useState<"text" | "image">("text");
+    const [answerImageMode, setAnswerImageMode] = useState<"upload" | "url">("upload");
+    const [answerUploading, setAnswerUploading] = useState(false);
+    const [answerUploadError, setAnswerUploadError] = useState<string | null>(null);
+    const [answerLocalPreview, setAnswerLocalPreview] = useState<string | null>(null);
+    const [answerImgError, setAnswerImgError] = useState(false);
+    const answerFileInputRef = useRef<HTMLInputElement>(null);
+
     const watchedImage = watch("image");
+    const watchedAnswerImage = watch("answerImage");
 
     useEffect(() => {
         if (editData) {
             reset({
                 tournamentId,
                 question: editData.question,
-                answer: editData.answer,
+                answer: editData.answer ?? "",
+                answerImage: editData.answerImage ?? "",
                 explanation: editData.explanation ?? "",
                 difficulty: editData.difficulty,
                 session: editData.session,
@@ -107,11 +119,23 @@ export default function QuestionForm({
             } else {
                 setImageMode("none");
             }
+
+            if (editData.answerImage && editData.answerImage.trim() !== "") {
+                setAnswerType("image");
+                if (editData.answerImage.startsWith("http://") || editData.answerImage.startsWith("https://")) {
+                    setAnswerImageMode("url");
+                } else {
+                    setAnswerImageMode("upload");
+                }
+            } else {
+                setAnswerType("text");
+            }
         } else {
             reset({
                 tournamentId,
                 question: "",
                 answer: "",
+                answerImage: "",
                 explanation: "",
                 difficulty: "SEDANG",
                 session: "WAJIB",
@@ -120,12 +144,18 @@ export default function QuestionForm({
                 image: "",
             });
             setImageMode("none");
+            setAnswerType("text");
+            setAnswerImageMode("upload");
         }
         setUploadError(null);
         setServerError(null);
         setLocalPreview(null);
         setImgError(false);
+        setAnswerUploadError(null);
+        setAnswerLocalPreview(null);
+        setAnswerImgError(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
+        if (answerFileInputRef.current) answerFileInputRef.current.value = "";
     }, [editData, tournamentId, reset, open]);
 
     const handleModeChange = (mode: "none" | "upload" | "url") => {
@@ -148,11 +178,41 @@ export default function QuestionForm({
         }
     };
 
+    const handleAnswerTypeChange = (type: "text" | "image") => {
+        setAnswerType(type);
+        setAnswerUploadError(null);
+        setAnswerImgError(false);
+        setServerError(null);
+        if (type === "text") {
+            setValue("answerImage", "");
+            setAnswerLocalPreview(null);
+            if (answerFileInputRef.current) answerFileInputRef.current.value = "";
+        } else {
+            setValue("answer", "");
+        }
+    };
+
+    const handleAnswerImageModeChange = (mode: "upload" | "url") => {
+        setAnswerImageMode(mode);
+        setAnswerUploadError(null);
+        setAnswerLocalPreview(null);
+        setAnswerImgError(false);
+        if (mode === "upload") {
+            if (watchedAnswerImage && (watchedAnswerImage.startsWith("http://") || watchedAnswerImage.startsWith("https://"))) {
+                setValue("answerImage", "");
+            }
+        } else {
+            if (answerFileInputRef.current) answerFileInputRef.current.value = "";
+            if (watchedAnswerImage && !watchedAnswerImage.startsWith("http://") && !watchedAnswerImage.startsWith("https://")) {
+                setValue("answerImage", "");
+            }
+        }
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Preview langsung via object URL agar tidak menunggu network
         const objectUrl = URL.createObjectURL(file);
         setLocalPreview(objectUrl);
         setImgError(false);
@@ -187,9 +247,66 @@ export default function QuestionForm({
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
+    const handleAnswerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const objectUrl = URL.createObjectURL(file);
+        setAnswerLocalPreview(objectUrl);
+        setAnswerImgError(false);
+        setAnswerUploading(true);
+        setAnswerUploadError(null);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await uploadQuestionImage(formData);
+            setValue("answerImage", res.url);
+        } catch (err) {
+            setAnswerUploadError(err instanceof Error ? err.message : "Gagal mengunggah gambar jawaban");
+        } finally {
+            setAnswerUploading(false);
+        }
+    };
+
+    const handleAnswerUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setValue("answerImage", val);
+        setAnswerLocalPreview(null);
+        setAnswerImgError(false);
+        if (answerFileInputRef.current) answerFileInputRef.current.value = "";
+    };
+
+    const handleRemoveAnswerImage = () => {
+        setValue("answerImage", "");
+        setAnswerLocalPreview(null);
+        setAnswerUploadError(null);
+        setAnswerImgError(false);
+        if (answerFileInputRef.current) answerFileInputRef.current.value = "";
+    };
+
     const onSubmit = async (data: CreateQuestionInput) => {
         setLoading(true);
         setServerError(null);
+
+        if (answerType === "text") {
+            if (!data.answer || data.answer.trim() === "") {
+                setServerError("Jawaban teks wajib diisi.");
+                setLoading(false);
+                return;
+            }
+            data.answer = data.answer.trim();
+            data.answerImage = "";
+        } else {
+            const finalAnswerImg = watchedAnswerImage ? watchedAnswerImage.trim() : "";
+            if (!finalAnswerImg) {
+                setServerError("File gambar atau URL gambar jawaban wajib diisi.");
+                setLoading(false);
+                return;
+            }
+            data.answer = "";
+            data.answerImage = finalAnswerImg;
+        }
+
         try {
             if (editData) {
                 await updateQuestion(editData.id, data);
@@ -242,7 +359,6 @@ export default function QuestionForm({
                             </label>
                         </div>
 
-                        {/* Mode Selector (Mutually Exclusive) */}
                         <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-muted p-1 text-xs">
                             <button
                                 type="button"
@@ -359,32 +475,180 @@ export default function QuestionForm({
                         )}
                     </div>
 
-                    {/* Jawaban + Waktu */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="col-span-2 space-y-1.5">
-                            <label className="labelCls required">Jawaban</label>
-                            <Input
-                                {...register("answer", { required: "Jawaban wajib diisi" })}
-                                placeholder="Jawaban benar"
-                            />
-                            {errors.answer && (
-                                <p className="text-xs text-destructive">{errors.answer.message}</p>
-                            )}
+                    <div className="space-y-3 rounded-xl border border-border p-3.5 bg-muted/20">
+                        <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                <span className="text-destructive">*</span>
+                                Jawaban Soal
+                            </label>
+                            <span className="text-[11px] text-muted-foreground">
+                                Pilih salah satu: Teks atau Gambar
+                            </span>
                         </div>
-                        <div className="space-y-1.5">
-                            <label className="labelCls required">Waktu (detik)</label>
-                            <Input
-                                type="number"
-                                {...register("timeLimit", {
-                                    required: true,
-                                    valueAsNumber: true,
-                                    min: { value: 5, message: "Min 5 detik" },
-                                })}
-                            />
-                            {errors.timeLimit && (
-                                <p className="text-xs text-destructive">{errors.timeLimit.message}</p>
-                            )}
+
+                        <div className="grid grid-cols-2 gap-1.5 rounded-lg bg-muted p-1 text-xs">
+                            <button
+                                type="button"
+                                onClick={() => handleAnswerTypeChange("text")}
+                                className={`rounded-md py-1.5 font-bold transition-all ${answerType === "text"
+                                        ? "bg-card text-foreground shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                            >
+                                Jawaban Teks
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleAnswerTypeChange("image")}
+                                className={`rounded-md py-1.5 font-bold transition-all flex items-center justify-center gap-1 ${answerType === "image"
+                                        ? "bg-card text-foreground shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                            >
+                                <ImageIcon className="h-3.5 w-3.5" />
+                                Jawaban Gambar
+                            </button>
                         </div>
+
+                        {/* Opsi Teks */}
+                        {answerType === "text" && (
+                            <div className="space-y-1.5 pt-1">
+                                <Input
+                                    {...register("answer")}
+                                    placeholder="Tuliskan kunci jawaban teks..."
+                                    className="h-9"
+                                />
+                                <p className="text-[11px] text-muted-foreground">
+                                    Ketikkan jawaban benar berupa teks atau angka.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Opsi Gambar */}
+                        {answerType === "image" && (
+                            <div className="space-y-2.5 pt-1">
+                                <div className="grid grid-cols-2 gap-1.5 rounded-lg bg-muted/80 p-1 text-xs">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleAnswerImageModeChange("upload")}
+                                        className={`rounded-md py-1.5 font-bold transition-all flex items-center justify-center gap-1 ${answerImageMode === "upload"
+                                                ? "bg-card text-foreground shadow-xs"
+                                                : "text-muted-foreground hover:text-foreground"
+                                            }`}
+                                    >
+                                        <Upload className="h-3.5 w-3.5" />
+                                        Upload File
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleAnswerImageModeChange("url")}
+                                        className={`rounded-md py-1.5 font-bold transition-all flex items-center justify-center gap-1 ${answerImageMode === "url"
+                                                ? "bg-card text-foreground shadow-xs"
+                                                : "text-muted-foreground hover:text-foreground"
+                                            }`}
+                                    >
+                                        <LinkIcon className="h-3.5 w-3.5" />
+                                        Gunakan URL
+                                    </button>
+                                </div>
+
+                                {answerImageMode === "upload" && (
+                                    <div className="space-y-2 pt-1">
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                ref={answerFileInputRef}
+                                                type="file"
+                                                accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                                                onChange={handleAnswerFileUpload}
+                                                disabled={answerUploading}
+                                                className="text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+                                            />
+                                            {answerUploading && (
+                                                <span className="flex items-center gap-1 text-xs text-primary font-medium">
+                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    Mengunggah...
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Format: JPG, PNG, WebP, GIF, SVG (Maks. 5MB).
+                                        </p>
+                                        {answerUploadError && (
+                                            <p className="text-xs text-destructive font-medium">{answerUploadError}</p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {answerImageMode === "url" && (
+                                    <div className="space-y-1.5 pt-1">
+                                        <Input
+                                            type="url"
+                                            placeholder="https://example.com/gambar-jawaban.png"
+                                            value={watchedAnswerImage || ""}
+                                            onChange={handleAnswerUrlChange}
+                                            className="text-xs h-9"
+                                        />
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Tempelkan URL langsung gambar jawaban yang dapat diakses publik.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {(answerLocalPreview || (watchedAnswerImage && watchedAnswerImage.trim() !== "")) && (
+                                    <div className="mt-2 rounded-lg border border-border bg-card p-2.5 flex flex-col sm:flex-row items-start gap-3">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={answerLocalPreview || watchedAnswerImage}
+                                            alt="Preview Jawaban"
+                                            onError={() => setAnswerImgError(true)}
+                                            onLoad={() => setAnswerImgError(false)}
+                                            className="max-h-28 max-w-full rounded-md object-contain border border-border bg-black/5 dark:bg-white/5"
+                                        />
+                                        <div className="flex-1 min-w-0 text-center sm:text-left space-y-1">
+                                            {answerImgError ? (
+                                                <p className="text-xs text-destructive font-semibold">
+                                                    Gambar jawaban gagal dimuat. Pastikan URL valid atau file tidak korup.
+                                                </p>
+                                            ) : (
+                                                <>
+                                                    <p className="text-xs text-muted-foreground max-w-xs font-mono truncate">
+                                                        {watchedAnswerImage || "File gambar dipilih"}
+                                                    </p>
+                                                    {watchedAnswerImage && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={handleRemoveAnswerImage}
+                                                            className="h-7 px-2 text-xs text-destructive bg-destructive/10 hover:bg-destructive/30 hover:text-destructive flex items-center gap-1"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                            Hapus Gambar Jawaban
+                                                        </Button>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Waktu Menjawab (detik) */}
+                    <div className="space-y-1.5">
+                        <label className="labelCls required">Waktu Menjawab (detik)</label>
+                        <Input
+                            type="number"
+                            {...register("timeLimit", {
+                                required: true,
+                                valueAsNumber: true,
+                                min: { value: 5, message: "Min 5 detik" },
+                            })}
+                        />
+                        {errors.timeLimit && (
+                            <p className="text-xs text-destructive">{errors.timeLimit.message}</p>
+                        )}
                     </div>
 
                     {/* Penjelasan */}

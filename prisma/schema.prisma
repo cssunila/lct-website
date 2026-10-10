@@ -188,14 +188,15 @@ model Question {
   tournamentId String
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
 
-  question   String
-  answer     String
+  question    String
+  answer      String             @default("")
   explanation String?
-  difficulty QuestionDifficulty
-  session    QuestionSession
-  kind       QuestionKind
-  timeLimit  Int
-  image      String?
+  difficulty  QuestionDifficulty
+  session     QuestionSession
+  kind        QuestionKind
+  timeLimit   Int
+  image       String?
+  answerImage String?
 
   games     GameQuestion[]
   histories ScoreHistory[]

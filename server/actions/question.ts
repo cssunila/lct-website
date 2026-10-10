@@ -17,6 +17,7 @@ export interface CreateQuestionInput {
   kind: QuestionKind;
   timeLimit: number;
   image?: string;
+  answerImage?: string;
 }
 
 export async function uploadQuestionImage(formData: FormData): Promise<{ url: string }> {
@@ -50,10 +51,24 @@ export async function uploadQuestionImage(formData: FormData): Promise<{ url: st
 
 export async function createQuestion(data: CreateQuestionInput) {
   const cleanImage = data.image && data.image.trim() !== "" ? data.image.trim() : null;
+  const cleanAnswerImage =
+    data.answerImage && data.answerImage.trim() !== "" ? data.answerImage.trim() : null;
+  let cleanAnswer = data.answer ? data.answer.trim() : "";
+
+  if (cleanAnswerImage) {
+    cleanAnswer = "";
+  }
+
+  if (!cleanAnswer && !cleanAnswerImage) {
+    throw new Error("Jawaban wajib diisi (pilih salah satu: teks atau gambar)");
+  }
+
   const question = await prisma.question.create({
     data: {
       ...data,
+      answer: cleanAnswer,
       image: cleanImage,
+      answerImage: cleanAnswerImage,
     },
   });
   revalidatePath(`/tournament/${data.tournamentId}/bank-soal`);
@@ -64,16 +79,38 @@ export async function updateQuestion(id: string, data: Partial<CreateQuestionInp
   const existing = await prisma.question.findUnique({ where: { id } });
   if (!existing) throw new Error("Soal tidak ditemukan");
 
-  const updateData: Partial<CreateQuestionInput> = { ...data };
-  if (data.image !== undefined) {
-    updateData.image = data.image && data.image.trim() !== "" ? data.image.trim() : undefined;
+  const cleanImage =
+    data.image !== undefined
+      ? data.image && data.image.trim() !== ""
+        ? data.image.trim()
+        : null
+      : existing.image;
+  let cleanAnswerImage =
+    data.answerImage !== undefined
+      ? data.answerImage && data.answerImage.trim() !== ""
+        ? data.answerImage.trim()
+        : null
+      : existing.answerImage;
+  let cleanAnswer =
+    data.answer !== undefined ? (data.answer ? data.answer.trim() : "") : existing.answer;
+
+  if (data.answerImage !== undefined && cleanAnswerImage) {
+    cleanAnswer = "";
+  } else if (data.answer !== undefined && cleanAnswer && data.answerImage === undefined) {
+    cleanAnswerImage = null;
+  }
+
+  if (!cleanAnswer && !cleanAnswerImage) {
+    throw new Error("Jawaban wajib diisi (pilih salah satu: teks atau gambar)");
   }
 
   const question = await prisma.question.update({
     where: { id },
     data: {
-      ...updateData,
-      image: data.image && data.image.trim() !== "" ? data.image.trim() : null,
+      ...data,
+      answer: cleanAnswer,
+      image: cleanImage,
+      answerImage: cleanAnswerImage,
     },
   });
 
@@ -107,7 +144,8 @@ export async function deleteAllQuestions(tournamentId: string) {
 
 export interface ImportQuestionRow {
   question: string;
-  answer: string;
+  answer?: string;
+  answerImage?: string;
   explanation?: string;
   difficulty: "MUDAH" | "SEDANG" | "SUSAH";
   session: "WAJIB" | "REBUTAN";
@@ -141,10 +179,29 @@ export async function importQuestions(tournamentId: string, rows: ImportQuestion
         }
       }
 
+      const rawAnswerImage = row.answerImage;
+      let cleanAnswerImage: string | null = null;
+      if (typeof rawAnswerImage === "string" && rawAnswerImage.trim() !== "") {
+        const trimmedAns = rawAnswerImage.trim();
+        if (
+          trimmedAns.startsWith("http://") ||
+          trimmedAns.startsWith("https://") ||
+          trimmedAns.startsWith("/")
+        ) {
+          cleanAnswerImage = trimmedAns;
+        }
+      }
+
+      let cleanAns = String(row.answer || "").trim();
+      if (cleanAnswerImage) {
+        cleanAns = "";
+      }
+
       return {
         tournamentId,
         question: String(row.question || "").trim(),
-        answer: String(row.answer || "").trim(),
+        answer: cleanAns,
+        answerImage: cleanAnswerImage,
         explanation: row.explanation ? String(row.explanation).trim() : "",
         difficulty: diff,
         session: sess,
@@ -153,7 +210,7 @@ export async function importQuestions(tournamentId: string, rows: ImportQuestion
         image: cleanImage,
       };
     })
-    .filter((q) => q.question !== "" && q.answer !== "");
+    .filter((q) => q.question !== "" && (q.answer !== "" || q.answerImage !== null));
 
   if (data.length === 0) {
     throw new Error("Tidak ada data soal yang valid dalam file JSON.");

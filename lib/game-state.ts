@@ -126,6 +126,7 @@ export function sanitizeGameDataForDisplay(
       question: {
         ...gq.question,
         answer: liveState.showAnswer ? gq.question.answer : undefined,
+        answerImage: liveState.showAnswer ? gq.question.answerImage : undefined,
         explanation: liveState.showAnswer ? gq.question.explanation : undefined,
         question:
           isCurrentQuestion && !liveState.questionVisible

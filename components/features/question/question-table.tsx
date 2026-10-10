@@ -95,7 +95,18 @@ export default function QuestionTable({ questions, onEdit }: QuestionTableProps)
                   <span className="truncate">{q.question}</span>
                 </div>
               </TableCell>
-              <TableCell className="max-w-40 truncate">{q.answer}</TableCell>
+              <TableCell className="max-w-44">
+                {q.answerImage ? (
+                  <div className="flex items-center gap-1.5" title="Jawaban berupa gambar">
+                    <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+                      <ImageIcon className="h-3 w-3" />
+                      Gambar
+                    </span>
+                  </div>
+                ) : (
+                  <span className="truncate block">{q.answer}</span>
+                )}
+              </TableCell>
               <TableCell>
                 <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-bold ${diff.className}`}>
                   {diff.label}

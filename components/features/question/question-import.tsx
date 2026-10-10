@@ -72,13 +72,14 @@ const QuestionImport = ({ tournamentId, open, onOpenChange, setImporting, import
                         </summary>
                         <div className="mt-2.5 space-y-2 text-muted-foreground leading-relaxed">
                             <p>
-                                File harus berupa <strong>Array JSON</strong> berisi objek soal. Kolom image bersifat opsional dan hanya menerima tautan URL gambar.
+                                File harus berupa <strong>Array JSON</strong> berisi objek soal. Kolom <code>image</code> dan <code>answerImage</code> bersifat opsional dan hanya menerima tautan URL gambar. Jawaban harus salah satu: teks (<code>answer</code>) atau gambar (<code>answerImage</code>).
                             </p>
                             <div className="grid grid-cols-2 gap-1 text-[11px] bg-background/80 p-2 rounded-lg border border-border/50">
                                 <div><strong>difficulty:</strong> MUDAH | SEDANG | SUSAH</div>
                                 <div><strong>session:</strong> WAJIB | REBUTAN</div>
                                 <div><strong>kind:</strong> BIASA | HITUNGAN</div>
                                 <div><strong>image:</strong> URL (http/https) atau kosong</div>
+                                <div className="col-span-2"><strong>answer / answerImage:</strong> Pilih salah satu (teks di answer ATAU URL di answerImage)</div>
                             </div>
                             <div className='bg-black/20 text-foreground p-3 rounded-lg overflow-x-auto max-h-52'>
                                 <pre className="font-mono text-[11px]">
@@ -86,6 +87,7 @@ const QuestionImport = ({ tournamentId, open, onOpenChange, setImporting, import
   {
     "question": "Berapakah hasil dari 2 + 2?",
     "answer": "4",
+    "answerImage": "",
     "explanation": "Penjelasan jawaban (opsional)",
     "difficulty": "MUDAH",
     "session": "WAJIB",
@@ -94,8 +96,9 @@ const QuestionImport = ({ tournamentId, open, onOpenChange, setImporting, import
     "image": "https://contoh.com/gambar-soal.png"
   },
   {
-    "question": "Siapakah penemu bola lampu?",
-    "answer": "Thomas Alva Edison",
+    "question": "Manakah diagram topologi ring yang benar?",
+    "answer": "",
+    "answerImage": "https://contoh.com/jawaban-topologi-ring.png",
     "explanation": "",
     "difficulty": "SEDANG",
     "session": "REBUTAN",
