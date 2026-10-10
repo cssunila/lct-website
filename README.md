@@ -2,8 +2,10 @@
 Ketika pertama kali ngeclone project, Jalankan perintah 
 ```bash
 pnpm install
+pnpm prisma generate
+pnpm prisma db push
 ```
-untuk menginstall semua dependencies yang dibutuhkan, Lalu jalankan perintah
+Lalu jalankan perintah
 ```bash
 pnpm build
 ```
