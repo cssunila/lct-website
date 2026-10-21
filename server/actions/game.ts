@@ -225,7 +225,10 @@ export async function changeScoreTim({
 }) {
   const gameTeam = await prisma.gameTeam.update({
     where: { id: gameTeamId },
-    data: { score },
+    data: {
+      score,
+      lastScoreAt: new Date(),
+    },
     include: { game: true },
   });
 
@@ -274,6 +277,7 @@ export async function markQuestionAnswered(data: {
       score: {
         increment: data.isCorrect ? data.scoreChange : -data.scoreChange,
       },
+      lastScoreAt: new Date(),
     },
   });
 
@@ -599,6 +603,7 @@ export async function resetGameProgress(gameId: string) {
     data: {
       score: 0,
       rank: null,
+      lastScoreAt: null,
     },
   });
 
@@ -654,8 +659,16 @@ export async function resetSingleGameQuestion(gameQuestionId: string) {
 
   if (!gq) throw new Error("Soal game tidak ditemukan");
 
+  await prisma.scoreHistory.deleteMany({
+    where: { gameQuestionId },
+  });
+
   for (const hist of gq.histories) {
     const change = Math.abs(hist.scoreChange);
+    const lastHist = await prisma.scoreHistory.findFirst({
+      where: { gameTeamId: hist.gameTeamId },
+      orderBy: { createdAt: "desc" },
+    });
     await prisma.gameTeam.update({
       where: { id: hist.gameTeamId },
       data: {
@@ -663,13 +676,10 @@ export async function resetSingleGameQuestion(gameQuestionId: string) {
           hist.result === "CORRECT"
             ? { decrement: change }
             : { increment: change },
+        lastScoreAt: lastHist ? lastHist.createdAt : null,
       },
     });
   }
-
-  await prisma.scoreHistory.deleteMany({
-    where: { gameQuestionId },
-  });
 
   await prisma.gameQuestion.update({
     where: { id: gameQuestionId },

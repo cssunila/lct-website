@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -67,6 +68,7 @@ interface GameQuestionItem {
 interface GameTeamItem {
   id: string;
   score: number;
+  lastScoreAt?: Date | string | null;
   team: { id: string; name: string; school: string; qualified: boolean };
 }
 
@@ -92,6 +94,16 @@ interface GameControlClientProps {
   questions: GameQuestionItem[];
   teams: GameTeamItem[];
 }
+
+const sortTeams = (a: GameTeamItem, b: GameTeamItem) => {
+  if (b.score !== a.score) return b.score - a.score;
+  const timeA = a.lastScoreAt ? new Date(a.lastScoreAt).getTime() : 0;
+  const timeB = b.lastScoreAt ? new Date(b.lastScoreAt).getTime() : 0;
+  if (timeA && timeB) return timeA - timeB;
+  if (timeA && !timeB) return -1;
+  if (!timeA && timeB) return 1;
+  return 0;
+};
 
 const DIFFICULTY_COLORS: Record<string, string> = {
   MUDAH: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
@@ -954,9 +966,7 @@ export default function GameControlClient({
               </div>
 
               <div className="space-y-3">
-                {[...teams]
-                  .sort((a, b) => b.score - a.score)
-                  .map((gt, i) => (
+                {[...teams].sort(sortTeams).map((gt, i) => (
                     <div
                       key={gt.id}
                       className={`flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4 transition-all ${!gt.team.qualified
@@ -1048,10 +1058,10 @@ export default function GameControlClient({
               <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <Trophy className="h-4 w-4 text-amber-500" />
                 Papan Skor Live
-              </p>
+              </p>  
             </div>
             <div className="space-y-2.5">
-              {[...teams].sort((a, b) => b.score - a.score).map((gt, i) => (
+              {[...teams].sort(sortTeams).map((gt, i) => (
                 <div key={gt.id} className={`grid grid-cols-[32px_minmax(0,1fr)_72px] gap-3 rounded-xl border p-3.5 ${!gt.team.qualified ? "border-red-500/30 bg-red-500/5 opacity-70" : i === 0 ? "border-amber-500/40 bg-amber-500/5" : "border-border bg-card"
                   }`}>
                   <span className={`inline-flex h-8 items-center justify-center rounded-lg text-xs font-black ${i === 0 ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" : "bg-muted text-muted-foreground"}`}>

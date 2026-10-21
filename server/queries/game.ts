@@ -9,7 +9,7 @@ export async function getGameById(id: string) {
       group: { include: { round: true } },
       teams: {
         include: { team: true },
-        orderBy: { score: "desc" },
+        orderBy: [{ score: "desc" }, { lastScoreAt: "asc" }],
       },
       questions: {
         include: { question: true, answeredBy: { include: { team: true } } },
@@ -35,7 +35,7 @@ export async function getGamesByTournament(tournamentId: string) {
       group: { include: { round: true } },
       teams: {
         include: { team: true },
-        orderBy: { score: "desc" },
+        orderBy: [{ score: "desc" }, { lastScoreAt: "asc" }],
       },
       _count: {
         select: { questions: true },
@@ -64,7 +64,7 @@ export async function getGameForDisplay(id: string) {
       },
       teams: {
         include: { team: true },
-        orderBy: { score: "desc" },
+        orderBy: [{ score: "desc" }, { lastScoreAt: "asc" }],
       },
       questions: {
         include: { question: true },

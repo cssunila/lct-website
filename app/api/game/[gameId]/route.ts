@@ -27,7 +27,7 @@ export async function GET(
       },
       teams: {
         include: { team: true },
-        orderBy: { score: "desc" },
+        orderBy: [{ score: "desc" }, { lastScoreAt: "asc" }],
       },
       questions: {
         include: { question: true, answeredBy: { include: { team: true } } },

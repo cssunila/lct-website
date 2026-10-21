@@ -29,6 +29,7 @@ interface GameQuestionData {
 interface TeamData {
   id: string;
   score: number;
+  lastScoreAt?: Date | string | null;
   team: { id: string; name: string; school: string };
 }
 
@@ -408,7 +409,15 @@ export default function GameDisplayClient({ gameId, game: initialGame }: GameDis
   const isWarning = displayTimer <= 5 && displayTimer > 0 && timerStatus === "RUNNING";
   const isExpired = timerStatus === "EXPIRED";
 
-  const sortedTeams = [...game.teams].sort((a, b) => b.score - a.score);
+  const sortedTeams = [...game.teams].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    const timeA = a.lastScoreAt ? new Date(a.lastScoreAt).getTime() : 0;
+    const timeB = b.lastScoreAt ? new Date(b.lastScoreAt).getTime() : 0;
+    if (timeA && timeB) return timeA - timeB;
+    if (timeA && !timeB) return -1;
+    if (!timeA && timeB) return 1;
+    return 0;
+  });
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-[#070709] text-white select-none">

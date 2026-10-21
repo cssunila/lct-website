@@ -26,6 +26,13 @@ export async function undoScoreHistory(historyId: string) {
 
   if (!history) throw new Error("Score history tidak ditemukan");
 
+  await prisma.scoreHistory.delete({ where: { id: historyId } });
+
+  const remainingLastHistory = await prisma.scoreHistory.findFirst({
+    where: { gameTeamId: history.gameTeamId },
+    orderBy: { createdAt: "desc" },
+  });
+
   const change = Math.abs(history.scoreChange);
   await prisma.gameTeam.update({
     where: { id: history.gameTeamId },
@@ -34,6 +41,7 @@ export async function undoScoreHistory(historyId: string) {
         history.result === "CORRECT"
           ? { decrement: change }
           : { increment: change },
+      lastScoreAt: remainingLastHistory ? remainingLastHistory.createdAt : null,
     },
   });
 
@@ -47,8 +55,6 @@ export async function undoScoreHistory(historyId: string) {
       },
     });
   }
-
-  await prisma.scoreHistory.delete({ where: { id: historyId } });
 
   const gameId = history.gameTeam.gameId;
   const tournamentId = history.gameTeam.game.group.round.tournamentId;
